@@ -35829,7 +35829,7 @@
       "pdfPages": null,
       "horseCount": 16
     },
-    "calculationLog": [
+    "logs": [
       {
         "at": "2026-07-15T02:55:37.377Z",
         "event": "BUILD_RESEARCH_PACKAGE",

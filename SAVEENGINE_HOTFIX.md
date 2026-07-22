@@ -1,10 +1,8 @@
-# GallopAI v3.3.4 SaveEngine Hotfix
+# GallopAI v3.3.4 SaveEngine
 
-## 修正内容
+## 保存構造
 
-通常保存とMigrationの両方で、Horseルートドキュメントを`merge`せず完全上書きします。
-
-保存される正式構造:
+通常保存はHorseルートドキュメントを`merge`せず完全上書きし、次の6セクションだけを直接保存します。
 
 - raw
 - features
@@ -13,25 +11,11 @@
 - logs
 - versions
 
-補助フィールド:
-
-- entityType
-- horseKey
-- number
-- name
-- featureCount
-- qualitySummary
-- ocrSummary
-- createdAt
-- updatedAt
-
-旧`calculationLog`は保存対象に含めないため、完全上書き時に確実に削除されます。
-Horse配下のサブコレクションはドキュメント上書きの影響を受けません。
+Firebase / Firestore互換性のため、Horse配下の`raw/current`、`features/current`、`quality/current`、`ocr/current`、`logs/current`サブコレクションも保存します。読み込みはHorseルートの正式構造だけを使用します。
 
 ## 公開後の確認
 
 1. Googleログイン
-2. 研究所で「旧データ→v3.3.4移行」を実行
-3. 有馬記念を再保存
-4. Firestoreの`horses/01`で`calculationLog`が存在しないことを確認
-5. `raw / features / quality / ocr / logs / versions`が存在することを確認
+2. 有馬記念を再保存
+3. Firestoreの`horses/01`で`raw / features / quality / ocr / logs / versions`だけがHorseルートに存在することを確認
+4. クラウド全件を再集計

@@ -55,8 +55,7 @@ function pathSet(raceId,horseKey=null,logId='current'){
   analysisOcr:mods.doc(db,...root,'analyses','ocr-statistics'),
   analysisLog:mods.doc(db,...root,'analyses','calculation-log'),
   dictionary:mods.doc(db,...root,'metadata','feature-dictionary'),
-  schema:mods.doc(db,...root,'metadata','schema'),
-  migration:mods.doc(db,...root,'metadata','migration')
+  schema:mods.doc(db,...root,'metadata','schema')
  };
 }
 const globalPaths=()=>({
@@ -92,8 +91,7 @@ export async function saveCloudRace(race,analysis=null){
    steps:hp.logs?.steps||[],
    latestEventId:eventId
   });
-  // SaveEngine v3.3.4: the Horse root document contains exactly six blocks.
-  // A full overwrite removes every legacy root field, including calculationLog.
+  // SaveEngine v3.3.4: the Horse root document contains exactly six canonical blocks.
   const versions=clean({
    ...(hp.versions||{}),
    horse:'3.3.4',
@@ -147,76 +145,17 @@ export async function saveGlobalResearchAnalysis(analysis,dictionary){
 }
 
 export async function listCloudRaces(){ensure();const snap=await mods.getDocs(mods.collection(db,'users',user.uid,'races'));return snap.docs.map(d=>{const x=d.data();delete x.serverUpdatedAt;return x;}).sort((a,b)=>(b.meta?.date||'').localeCompare(a.meta?.date||''));}
-async function readDoc(ref){const s=await mods.getDoc(ref);return s.exists()?s.data():null;}
 async function readHorses(id){
  const hs=await mods.getDocs(mods.collection(db,'users',user.uid,'races',id,'horses')),out=[];
  for(const d of hs.docs){
-  const root=d.data(),pp=pathSet(id,d.id),[rawDoc,featureDoc,qualityDoc,ocrDoc,logsDoc]=await Promise.all([readDoc(pp.raw),readDoc(pp.feature),readDoc(pp.quality),readDoc(pp.ocr),readDoc(pp.logCurrent)]);
-  const raw=root.raw||rawDoc?.immutableParsedSources||null;
-  const merged=raw?.merged||root;
-  const features=root.features||featureDoc?.values||{};
-  const quality=root.quality||qualityDoc||null;
-  const ocr=root.ocr||ocrDoc||null;
-  const legacyHistory=Array.isArray(root.calculationLog)?root.calculationLog:[];
-  const logs=root.logs||logsDoc||(legacyHistory.length?{createdAt:legacyHistory[0]?.at||null,updatedAt:legacyHistory.at(-1)?.at||null,featureVersion:root.versions?.features||'legacy',engineVersion:'legacy',calculationTime:null,recalculateHistory:legacyHistory}:null);
-  out.push({...merged,features,featureMeta:featureDoc?.meta||{},quality,ocr,logs,versions:root.versions||{},raw});
+  const root=d.data();
+  const raw=root.raw||{};
+  out.push({...raw.merged,features:root.features||{},quality:root.quality||{},ocr:root.ocr||{},logs:root.logs||{},versions:root.versions||{},raw});
  }
  return out.sort((a,b)=>Number(a.number)-Number(b.number));
 }
 export async function getCloudRace(id){ensure();const snap=await mods.getDoc(pathSet(id).race);if(!snap.exists())return null;const x=snap.data();delete x.serverUpdatedAt;x.horses=await readHorses(id);x.counts=x.counts||{};x.counts.merged=x.horses.length;x.counts.preRaceComplete=x.horses.filter(h=>h.sourceStatus?.targetText&&h.sourceStatus?.training).length;x.counts.resultMatched=x.horses.filter(h=>h.result?.finish!=null).length;return x;}
 export async function loadResearchDataset(){ensure();const summaries=await listCloudRaces(),races=[];for(const s of summaries){const full=await getCloudRace(s.raceId);if(full)races.push(full);}return races;}
-
-export async function migrateLegacyToV334(){
- ensure();const summaries=await listCloudRaces();let migrated=0,skipped=0,failed=0;const details=[];
- for(const raceSummary of summaries){
-  try{
-   const id=raceSummary.raceId,rootSnap=await mods.getDoc(pathSet(id).race),raceRoot=rootSnap.data()||raceSummary,horseSnap=await mods.getDocs(mods.collection(db,'users',user.uid,'races',id,'horses'));
-   const legacy=horseSnap.empty?(raceRoot.horses||[]).map(h=>({id:String(h.number).padStart(2,'0'),data:()=>h,ref:null})):horseSnap.docs;
-   if(!legacy.length){skipped++;details.push({raceId:id,status:'skipped',reason:'Horseデータなし'});continue;}
-   let needsMigration=raceSummary.dataModelVersion!=='3.3.4';
-   if(!needsMigration)for(const d of legacy){const x=d.data();if(!x.raw||!x.features||!x.quality||!x.ocr||!x.logs||Object.prototype.hasOwnProperty.call(x,'calculationLog')){needsMigration=true;break;}}
-   if(!needsMigration){skipped++;details.push({raceId:id,status:'skipped',reason:'v3.3.4正式構造済み'});continue;}
-   const batch=mods.writeBatch(db),now=new Date().toISOString(),eventId=`migration_${safeId(now)}_${Math.random().toString(36).slice(2,7)}`;
-   for(const d of legacy){
-    const old=d.data(),horseKey=d.id||String(old.number).padStart(2,'0'),pp=pathSet(id,horseKey,eventId);
-    const [rawDoc,featureDoc,qualityDoc,ocrDoc,logsDoc]=await Promise.all([readDoc(pp.raw),readDoc(pp.feature),readDoc(pp.quality),readDoc(pp.ocr),readDoc(pp.logCurrent)]);
-    const features=old.features||featureDoc?.values||{};
-    const raw=old.raw||rawDoc?.immutableParsedSources||{merged:old,targetText:old.ability||null,trainingPdf:old.training||null,entryCsv:null,resultCsv:old.result||null,capturedAt:now};
-    const quality=old.quality||qualityDoc||{qualityScore:80,missingCount:0,duplicateFlag:false,typeErrorCount:0,abnormalCount:0,warning:['旧データから移行。再取込で品質を再計算してください。'],validationStatus:'WARNING',errorCount:0,warningCount:1,issues:[],checkedAt:now,schemaVersion:'legacy'};
-    const ocr=old.ocr||ocrDoc||{confidence:raceRoot.quality?.ocrConfidence??null,method:'legacy-migration',isTrueOcr:false,engineVersion:'legacy',parseVersion:'legacy',pdfPages:null,warnings:['再取込で信頼度を再計算してください']};
-    const oldCalc=Array.isArray(old.calculationLog)?old.calculationLog:[];
-    const sourceLogs=old.logs||logsDoc||{};
-    const history=[...(sourceLogs.recalculateHistory||[]),...oldCalc.map(x=>({...x,event:x.event||'LEGACY_CALCULATION_LOG'})),{at:now,event:'MIGRATE_TO_V334',status:'success'}].slice(-20);
-    const logs={createdAt:sourceLogs.createdAt||old.createdAt||oldCalc[0]?.at||now,updatedAt:now,featureVersion:sourceLogs.featureVersion||featureDoc?.schemaVersion||raceRoot.featureSchemaVersion||old.versions?.features||'legacy',engineVersion:'migration-3.3.4',calculationTime:sourceLogs.calculationTime??sourceLogs.calculationTimeMs??null,calculationTimeMs:sourceLogs.calculationTimeMs??sourceLogs.calculationTime??null,recalculateHistory:history,steps:sourceLogs.steps||['MIGRATION','FORMAL_STRUCTURE_READY']};
-    const versions={...(old.versions||{}),horse:'3.3.4',quality:old.versions?.quality||'3.3.4',ocr:old.versions?.ocr||'3.3.4',logs:'3.3.4'};
-    // Migration uses the same canonical six-block SaveEngine as normal saving.
-    const canonicalVersions={
-      ...versions,
-      horse:'3.3.4',
-      raw:versions.raw||'1.2.0',
-      features:versions.features||logs.featureVersion||'legacy',
-      quality:versions.quality||'3.3.4',
-      ocr:versions.ocr||'3.3.4',
-      logs:'3.3.4'
-    };
-    const rootHorse=canonicalHorseDocument(raw,features,quality,ocr,logs,canonicalVersions);
-    batch.set(pp.horse,rootHorse);
-    batch.set(pp.raw,clean({entityType:'Raw',raceId:id,horseKey,immutableParsedSources:raw,capturedAt:raw.capturedAt||now}),{merge:true});
-    batch.set(pp.feature,clean({entityType:'Feature',raceId:id,horseKey,schemaVersion:logs.featureVersion,engineVersion:logs.engineVersion,values:features,meta:featureDoc?.meta||{},updatedAt:now}),{merge:true});
-    batch.set(pp.quality,clean({entityType:'Quality',raceId:id,horseKey,...quality,updatedAt:now}),{merge:true});
-    batch.set(pp.ocr,clean({entityType:'OCR',raceId:id,horseKey,...ocr,updatedAt:now}),{merge:true});
-    batch.set(pp.logCurrent,clean({entityType:'Log',raceId:id,horseKey,...logs,latestEventId:eventId,updatedAt:now}),{merge:true});
-    batch.set(pp.logEvent,clean({entityType:'LogEvent',raceId:id,horseKey,eventId,at:now,event:'MIGRATE_TO_V334',status:'success',featureVersion:logs.featureVersion,engineVersion:logs.engineVersion,calculationTime:logs.calculationTime,featureCount:Object.keys(features).length}),{merge:false});
-   }
-   batch.set(pathSet(id).race,{dataModelVersion:'3.3.4',migratedAt:now,serverUpdatedAt:mods.serverTimestamp()},{merge:true});
-   batch.set(pathSet(id).migration,{fromVersion:raceSummary.dataModelVersion||'legacy',toVersion:'3.3.4',status:'success',horseCount:legacy.length,migratedAt:now,formalHorseFields:['raw','features','quality','ocr','logs','versions']},{merge:true});
-   await batch.commit();migrated++;details.push({raceId:id,status:'success',horseCount:legacy.length});
-  }catch(e){failed++;details.push({raceId:raceSummary.raceId,status:'failed',error:e.message});}
- }
- return{migrated,skipped,failed,details};
-}
-export const migrateLegacyToV33=migrateLegacyToV334;
-export const migrateLegacyToV332=migrateLegacyToV334;
 
 async function deleteCollection(pathSegments){const snap=await mods.getDocs(mods.collection(db,...pathSegments));for(const d of snap.docs)await mods.deleteDoc(d.ref);}
 export async function saveResearchAnalysis(analysis){

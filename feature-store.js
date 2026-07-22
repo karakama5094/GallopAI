@@ -28,7 +28,7 @@ const toSeconds=v=>{const m=String(v||'').match(/(?:(\d+):)?(\d+)\.(\d+)/);retur
 const daysFromMonthDay=(raceDate,md)=>{if(!raceDate||!md)return null;const [y]=raceDate.split('-').map(Number),[m,d]=String(md).split('/').map(Number);if(!m||!d)return null;let dt=new Date(y,m-1,d),race=new Date(raceDate);if(dt>race)dt=new Date(y-1,m-1,d);return Math.round((race-dt)/86400000);};
 const stableHash=value=>{const s=JSON.stringify(value);let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(16).padStart(8,'0');};
 
-function coreHorseSnapshot(h){const x=structuredClone(h||{});for(const k of ['features','featureMeta','quality','ocr','logs','versions','raw','researchPackage','calculationLog'])delete x[k];return x;}
+function coreHorseSnapshot(h){const x=structuredClone(h||{});for(const k of ['features','featureMeta','quality','ocr','logs','versions','raw','researchPackage'])delete x[k];return x;}
 
 function sessionContext(training,settings){
  const sessions=training?.sessions||[];

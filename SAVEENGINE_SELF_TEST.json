@@ -10,10 +10,7 @@
     "versions"
   ],
   "normalSaveUsesCanonicalBuilder": true,
-  "migrationUsesCanonicalBuilder": true,
   "normalSaveFullOverwrite": true,
-  "migrationFullOverwrite": true,
-  "calculationLogGenerated": false,
   "compatibilitySubcollectionsRetained": true,
   "machineLearningEnabled": false,
   "minimumRacesForMachineLearning": 50
