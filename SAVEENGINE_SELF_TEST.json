@@ -1,0 +1,20 @@
+{
+  "version": "3.3.4",
+  "status": "PASS",
+  "canonicalHorseRootFields": [
+    "raw",
+    "features",
+    "quality",
+    "ocr",
+    "logs",
+    "versions"
+  ],
+  "normalSaveUsesCanonicalBuilder": true,
+  "migrationUsesCanonicalBuilder": true,
+  "normalSaveFullOverwrite": true,
+  "migrationFullOverwrite": true,
+  "calculationLogGenerated": false,
+  "compatibilitySubcollectionsRetained": true,
+  "machineLearningEnabled": false,
+  "minimumRacesForMachineLearning": 50
+}

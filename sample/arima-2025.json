@@ -1,0 +1,3911 @@
+{
+  "version": "2.3",
+  "raceId": "2025-12-28_中山_11R",
+  "meta": {
+    "date": "2025-12-28",
+    "venue": "中山",
+    "raceNo": 11,
+    "raceName": "第70回有馬記念",
+    "surface": "芝",
+    "distance": 2500
+  },
+  "horses": [
+    {
+      "number": 1,
+      "waku": 1,
+      "name": "エキサイトバイオ",
+      "basic": {
+        "number": 1,
+        "waku": 1,
+        "name": "エキサイトバイオ",
+        "sex": "牡",
+        "age": 3,
+        "jockey": "荻野極",
+        "weight": 56,
+        "affiliation": "(栗)",
+        "trainer": "今野貞一",
+        "blinker": "",
+        "sire": "レイデオロ",
+        "dam": "アニメイトバイオ",
+        "broodmareSire": "ゼンノロブロイ",
+        "secondDam": "レーゲンボーゲン",
+        "zi": 112,
+        "pastIndexes": [
+          {
+            "value": 88,
+            "surface": "T"
+          },
+          {
+            "value": 74,
+            "surface": "T"
+          },
+          {
+            "value": 67,
+            "surface": "T"
+          },
+          {
+            "value": 53,
+            "surface": "T"
+          },
+          {
+            "value": 52,
+            "surface": "T"
+          },
+          {
+            "value": 52,
+            "surface": "T"
+          },
+          {
+            "value": 53,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 29.7,
+        "popularity": 7,
+        "bodyWeight": 482,
+        "bodyWeightDelta": 2,
+        "foreignFlag": "",
+        "owner": "バイオ",
+        "breeder": "ノーザンファーム",
+        "color": "鹿毛",
+        "birthday": "3月10日"
+      },
+      "ability": {
+        "number": 1,
+        "waku": 1,
+        "name": "エキサイトバイオ",
+        "sex": "牡",
+        "age": 3,
+        "jockey": "荻野極",
+        "weight": 56.0,
+        "affiliation": "(栗)",
+        "trainer": "今野貞一",
+        "blinker": "",
+        "sire": "レイデオロ",
+        "dam": "アニメイトバイオ",
+        "broodmareSire": "ゼンノロブロイ",
+        "secondDam": "レーゲンボーゲン",
+        "zi": 112,
+        "pastIndexes": [
+          {
+            "value": 88,
+            "surface": "T"
+          },
+          {
+            "value": 74,
+            "surface": "T"
+          },
+          {
+            "value": 67,
+            "surface": "T"
+          },
+          {
+            "value": 53,
+            "surface": "T"
+          },
+          {
+            "value": 52,
+            "surface": "T"
+          },
+          {
+            "value": 52,
+            "surface": "T"
+          },
+          {
+            "value": 53,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 1,
+        "number": 1,
+        "name": "エキサイトバイオ",
+        "shortComment": "まずまず仕上がる",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "10/22",
+            "course": "栗坂",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              51.6,
+              37.7,
+              25.0,
+              12.8
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "栗坂",
+            "style": "末強め追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              51.4,
+              38.1,
+              25.1,
+              12.6
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/21",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              57.0,
+              41.6,
+              26.6,
+              13.3
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "一杯に追う",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              54.1,
+              39.2,
+              25.7,
+              12.9
+            ],
+            "lane": null,
+            "note": ""
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 0.5,
+        "maxAll": 0.5,
+        "latest1F": 12.9,
+        "latest3F": 39.2,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "一杯に追う",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            54.1,
+            39.2,
+            25.7,
+            12.9
+          ],
+          "lane": null,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 8,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 1,
+        "number": 1,
+        "name": "エキサイトバイオ",
+        "sex": "牡",
+        "age": 3,
+        "weight": 56,
+        "jockey": "荻野極",
+        "time": "2.32.1",
+        "adjustedTime": 91,
+        "margin": "ハナ",
+        "pci": 53.7,
+        "corners": [
+          10,
+          9,
+          8,
+          7
+        ],
+        "ave3f": 36.82,
+        "last3f": 35.5,
+        "popularity": 7,
+        "odds": 29.7,
+        "bodyWeight": 482,
+        "bodyWeightDelta": 2,
+        "affiliation": "(栗)",
+        "trainer": "今野貞一",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 2,
+      "waku": 1,
+      "name": "シンエンペラー",
+      "basic": {
+        "number": 2,
+        "waku": 1,
+        "name": "シンエンペラー",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "坂井瑠星",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "矢作芳人",
+        "blinker": "",
+        "sire": "Siyouni",
+        "dam": "Starlet's Sister",
+        "broodmareSire": "Galileo",
+        "secondDam": "Premiere Creation",
+        "zi": 114,
+        "pastIndexes": [
+          {
+            "value": 88,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 97,
+            "surface": "T"
+          },
+          {
+            "value": 84,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 26.6,
+        "popularity": 6,
+        "bodyWeight": 496,
+        "bodyWeightDelta": -2,
+        "foreignFlag": "(外)",
+        "owner": "藤田晋",
+        "breeder": "Ecurie Des Monceaux",
+        "color": "栗毛",
+        "birthday": "4月30日"
+      },
+      "ability": {
+        "number": 2,
+        "waku": 1,
+        "name": "シンエンペラー",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "坂井瑠星",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "矢作芳人",
+        "blinker": "",
+        "sire": "Siyouni",
+        "dam": "Starlet's Sister",
+        "broodmareSire": "Galileo",
+        "secondDam": "Premiere Creation",
+        "zi": 114,
+        "pastIndexes": [
+          {
+            "value": 88,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 97,
+            "surface": "T"
+          },
+          {
+            "value": 84,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 1,
+        "number": 2,
+        "name": "シンエンペラー",
+        "shortComment": "先着で脚色に余裕",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/26",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              54.7,
+              39.0,
+              25.4,
+              12.4
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "栗CW",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              81.6,
+              66.8,
+              52.6,
+              37.8,
+              11.6
+            ],
+            "lane": 5,
+            "note": "グラヴィス(古馬3勝)一杯の内0.8秒追走0.1秒遅れ"
+          },
+          {
+            "date": "12/20",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "稍",
+            "prev": false,
+            "final": false,
+            "times": [
+              54.4,
+              38.8,
+              25.0,
+              12.5
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "末強め追う",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              55.4,
+              39.9,
+              25.5,
+              12.3
+            ],
+            "lane": null,
+            "note": "アスクアイルビゼア(古馬2勝)一杯を0.5秒追走0.2秒 先着"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.4,
+        "maxAll": 1.4,
+        "latest1F": 12.3,
+        "latest3F": 39.9,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "末強め追う",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            55.4,
+            39.9,
+            25.5,
+            12.3
+          ],
+          "lane": null,
+          "note": "アスクアイルビゼア(古馬2勝)一杯を0.5秒追走0.2秒 先着"
+        }
+      },
+      "result": {
+        "finish": 14,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 1,
+        "number": 2,
+        "name": "シンエンペラー",
+        "sex": "牡",
+        "age": 4,
+        "weight": 58,
+        "jockey": "坂井瑠星",
+        "time": "2.32.6",
+        "adjustedTime": 86,
+        "margin": "頭",
+        "pci": 52.3,
+        "corners": [
+          5,
+          5,
+          8,
+          7
+        ],
+        "ave3f": 36.82,
+        "last3f": 36.0,
+        "popularity": 6,
+        "odds": 26.6,
+        "bodyWeight": 496,
+        "bodyWeightDelta": -2,
+        "affiliation": "(栗)",
+        "trainer": "矢作芳人",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 3,
+      "waku": 2,
+      "name": "ジャスティンパレス",
+      "basic": {
+        "number": 3,
+        "waku": 2,
+        "name": "ジャスティンパレス",
+        "sex": "牡",
+        "age": 6,
+        "jockey": "団野大成",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "杉山晴紀",
+        "blinker": "B",
+        "sire": "ディープインパクト",
+        "dam": "パレスルーマー",
+        "broodmareSire": "Royal Anthem",
+        "secondDam": "Whisperifyoudare",
+        "zi": 115,
+        "pastIndexes": [
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": true,
+        "odds": 12.7,
+        "popularity": 5,
+        "bodyWeight": 472,
+        "bodyWeightDelta": 2,
+        "foreignFlag": "",
+        "owner": "三木正浩",
+        "breeder": "ノーザンファーム",
+        "color": "青鹿",
+        "birthday": "4月12日"
+      },
+      "ability": {
+        "number": 3,
+        "waku": 2,
+        "name": "ジャスティンパレス",
+        "sex": "牡",
+        "age": 6,
+        "jockey": "団野大成",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "杉山晴紀",
+        "blinker": "B",
+        "sire": "ディープインパクト",
+        "dam": "パレスルーマー",
+        "broodmareSire": "Royal Anthem",
+        "secondDam": "Whisperifyoudare",
+        "zi": 115,
+        "pastIndexes": [
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 2,
+        "number": 3,
+        "name": "ジャスティンパレス",
+        "shortComment": "好馬体目につく",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/26",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              52.0,
+              37.3,
+              11.5
+            ],
+            "lane": 8,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "栗CW",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              83.0,
+              67.9,
+              52.7,
+              37.7,
+              11.5
+            ],
+            "lane": 7,
+            "note": "ウィンストン(古馬1勝)一杯の内0.4秒追走同入"
+          },
+          {
+            "date": "12/21",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              55.8,
+              41.3,
+              27.2,
+              13.6
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              53.6,
+              38.2,
+              11.8
+            ],
+            "lane": 5,
+            "note": ""
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.0,
+        "maxAll": 1.0,
+        "latest1F": 11.8,
+        "latest3F": 38.2,
+        "final": {
+          "date": "12/24",
+          "course": "栗CW",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            53.6,
+            38.2,
+            11.8
+          ],
+          "lane": 5,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 7,
+        "abnormalCode": "0",
+        "blinker": "B",
+        "waku": 2,
+        "number": 3,
+        "name": "ジャスティンパレス",
+        "sex": "牡",
+        "age": 6,
+        "weight": 58,
+        "jockey": "団野大成",
+        "time": "2.32.1",
+        "adjustedTime": 91,
+        "margin": "1/2",
+        "pci": 54.9,
+        "corners": [
+          15,
+          16,
+          11,
+          12
+        ],
+        "ave3f": 36.92,
+        "last3f": 35.2,
+        "popularity": 5,
+        "odds": 12.7,
+        "bodyWeight": 472,
+        "bodyWeightDelta": 2,
+        "affiliation": "(栗)",
+        "trainer": "杉山晴紀",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 4,
+      "waku": 2,
+      "name": "ミュージアムマイル",
+      "basic": {
+        "number": 4,
+        "waku": 2,
+        "name": "ミュージアムマイル",
+        "sex": "牡",
+        "age": 3,
+        "jockey": "C.デムー",
+        "weight": 56,
+        "affiliation": "(栗)",
+        "trainer": "高柳大輔",
+        "blinker": "",
+        "sire": "リオンディーズ",
+        "dam": "ミュージアムヒル",
+        "broodmareSire": "ハーツクライ",
+        "secondDam": "ロレットチャペル",
+        "zi": 126,
+        "pastIndexes": [
+          {
+            "value": 96,
+            "surface": "T"
+          },
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 78,
+            "surface": "T"
+          },
+          {
+            "value": 71,
+            "surface": "T"
+          },
+          {
+            "value": 70,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 3.8,
+        "popularity": 3,
+        "bodyWeight": 502,
+        "bodyWeightDelta": 2,
+        "foreignFlag": "",
+        "owner": "サンデーレーシング",
+        "breeder": "ノーザンファーム",
+        "color": "黒鹿",
+        "birthday": "1月10日"
+      },
+      "ability": {
+        "number": 4,
+        "waku": 2,
+        "name": "ミュージアムマイル",
+        "sex": "牡",
+        "age": 3,
+        "jockey": "C.デムー",
+        "weight": 56.0,
+        "affiliation": "(栗)",
+        "trainer": "高柳大輔",
+        "blinker": "",
+        "sire": "リオンディーズ",
+        "dam": "ミュージアムヒル",
+        "broodmareSire": "ハーツクライ",
+        "secondDam": "ロレットチャペル",
+        "zi": 126,
+        "pastIndexes": [
+          {
+            "value": 96,
+            "surface": "T"
+          },
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 78,
+            "surface": "T"
+          },
+          {
+            "value": 71,
+            "surface": "T"
+          },
+          {
+            "value": 70,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 2,
+        "number": 4,
+        "name": "ミュージアムマイル",
+        "shortComment": "好気配示す",
+        "trend": "↗",
+        "sessions": [
+          {
+            "date": "10/29",
+            "course": "栗坂",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              53.8,
+              38.6,
+              24.8,
+              12.3
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "栗CW",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              78.5,
+              64.4,
+              50.8,
+              36.5,
+              11.4
+            ],
+            "lane": 6,
+            "note": "タケルハーロック(古馬1勝)一杯の内1.4秒追走0.1秒 先着"
+          },
+          {
+            "date": "12/21",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              59.8,
+              42.8,
+              27.7,
+              13.8
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              55.5,
+              40.6,
+              25.9,
+              12.5
+            ],
+            "lane": null,
+            "note": "アンズアメ(古馬3勝)末強めを0.1秒追走クビ先着"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.4,
+        "maxAll": 1.4,
+        "latest1F": 12.5,
+        "latest3F": 40.6,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            55.5,
+            40.6,
+            25.9,
+            12.5
+          ],
+          "lane": null,
+          "note": "アンズアメ(古馬3勝)末強めを0.1秒追走クビ先着"
+        }
+      },
+      "result": {
+        "finish": 1,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 2,
+        "number": 4,
+        "name": "ミュージアムマイル",
+        "sex": "牡",
+        "age": 3,
+        "weight": 56,
+        "jockey": "C.デムー",
+        "time": "2.31.5",
+        "adjustedTime": 97,
+        "margin": "",
+        "pci": 56.7,
+        "corners": [
+          11,
+          11,
+          11,
+          11
+        ],
+        "ave3f": 36.92,
+        "last3f": 34.6,
+        "popularity": 3,
+        "odds": 3.8,
+        "bodyWeight": 502,
+        "bodyWeightDelta": 2,
+        "affiliation": "(栗)",
+        "trainer": "高柳大輔",
+        "prize": 50000
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 5,
+      "waku": 3,
+      "name": "レガレイラ",
+      "basic": {
+        "number": 5,
+        "waku": 3,
+        "name": "レガレイラ",
+        "sex": "牝",
+        "age": 4,
+        "jockey": "C.ルメー",
+        "weight": 56,
+        "affiliation": "(美)",
+        "trainer": "木村哲也",
+        "blinker": "",
+        "sire": "スワーヴリチャード",
+        "dam": "ロカ",
+        "broodmareSire": "ハービンジャー",
+        "secondDam": "ランズエッジ",
+        "zi": 130,
+        "pastIndexes": [
+          {
+            "value": 97,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 85,
+            "surface": "T"
+          },
+          {
+            "value": 97,
+            "surface": "T"
+          },
+          {
+            "value": 88,
+            "surface": "T"
+          },
+          {
+            "value": 80,
+            "surface": "T"
+          },
+          {
+            "value": 83,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": true,
+        "odds": 3.3,
+        "popularity": 1,
+        "bodyWeight": 482,
+        "bodyWeightDelta": 2,
+        "foreignFlag": "",
+        "owner": "サンデーレーシング",
+        "breeder": "ノーザンファーム",
+        "color": "鹿毛",
+        "birthday": "4月12日"
+      },
+      "ability": {
+        "number": 5,
+        "waku": 3,
+        "name": "レガレイラ",
+        "sex": "牝",
+        "age": 4,
+        "jockey": "C.ルメー",
+        "weight": 56.0,
+        "affiliation": "(美)",
+        "trainer": "木村哲也",
+        "blinker": "",
+        "sire": "スワーヴリチャード",
+        "dam": "ロカ",
+        "broodmareSire": "ハービンジャー",
+        "secondDam": "ランズエッジ",
+        "zi": 130,
+        "pastIndexes": [
+          {
+            "value": 97,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 85,
+            "surface": "T"
+          },
+          {
+            "value": 97,
+            "surface": "T"
+          },
+          {
+            "value": 88,
+            "surface": "T"
+          },
+          {
+            "value": 80,
+            "surface": "T"
+          },
+          {
+            "value": 83,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 3,
+        "number": 5,
+        "name": "レガレイラ",
+        "shortComment": "脚取り確か",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/12",
+            "course": "美W",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              83.1,
+              66.7,
+              51.7,
+              37.4,
+              11.4
+            ],
+            "lane": 4,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "美W",
+            "style": "G前仕掛け",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              83.7,
+              66.7,
+              51.7,
+              37.5,
+              11.3
+            ],
+            "lane": 3,
+            "note": "ソニックスター(古オープン)馬なりの内0.2秒追走同 入"
+          },
+          {
+            "date": "12/21",
+            "course": "美坂",
+            "style": "一杯に追う",
+            "baba": "重",
+            "prev": false,
+            "final": false,
+            "times": [
+              53.0,
+              38.4,
+              24.3,
+              11.7
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "美W",
+            "style": "強めに追う",
+            "baba": "良",
+            "prev": false,
+            "final": true,
+            "times": [
+              82.9,
+              66.3,
+              51.2,
+              37.0,
+              11.2
+            ],
+            "lane": 3,
+            "note": "ソニックスター(古オープン)末強めの内0.1秒追走同 入"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.5,
+        "maxAll": 1.5,
+        "latest1F": 11.2,
+        "latest3F": 37.0,
+        "final": {
+          "date": "12/24",
+          "course": "美W",
+          "style": "強めに追う",
+          "baba": "良",
+          "prev": false,
+          "final": true,
+          "times": [
+            82.9,
+            66.3,
+            51.2,
+            37.0,
+            11.2
+          ],
+          "lane": 3,
+          "note": "ソニックスター(古オープン)末強めの内0.1秒追走同 入"
+        }
+      },
+      "result": {
+        "finish": 4,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 3,
+        "number": 5,
+        "name": "レガレイラ",
+        "sex": "牝",
+        "age": 4,
+        "weight": 56,
+        "jockey": "C.ルメー",
+        "time": "2.31.7",
+        "adjustedTime": 95,
+        "margin": "1/2",
+        "pci": 56.9,
+        "corners": [
+          14,
+          14,
+          15,
+          12
+        ],
+        "ave3f": 36.98,
+        "last3f": 34.6,
+        "popularity": 1,
+        "odds": 3.3,
+        "bodyWeight": 482,
+        "bodyWeightDelta": 2,
+        "affiliation": "(美)",
+        "trainer": "木村哲也",
+        "prize": 7500
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 6,
+      "waku": 3,
+      "name": "メイショウタバル",
+      "basic": {
+        "number": 6,
+        "waku": 3,
+        "name": "メイショウタバル",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "武豊",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "石橋守",
+        "blinker": "",
+        "sire": "ゴールドシップ",
+        "dam": "メイショウツバクロ",
+        "broodmareSire": "フレンチデピュティ",
+        "secondDam": "ダンシングハピネス",
+        "zi": 117,
+        "pastIndexes": [
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 100,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 79,
+            "surface": "T"
+          },
+          {
+            "value": 42,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 5.8,
+        "popularity": 4,
+        "bodyWeight": 512,
+        "bodyWeightDelta": 4,
+        "foreignFlag": "",
+        "owner": "松本好隆",
+        "breeder": "三嶋牧場",
+        "color": "鹿毛",
+        "birthday": "4月20日"
+      },
+      "ability": {
+        "number": 6,
+        "waku": 3,
+        "name": "メイショウタバル",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "武豊",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "石橋守",
+        "blinker": "",
+        "sire": "ゴールドシップ",
+        "dam": "メイショウツバクロ",
+        "broodmareSire": "フレンチデピュティ",
+        "secondDam": "ダンシングハピネス",
+        "zi": 117,
+        "pastIndexes": [
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 100,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 79,
+            "surface": "T"
+          },
+          {
+            "value": 42,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 3,
+        "number": 6,
+        "name": "メイショウタバル",
+        "shortComment": "先週強い稽古消化",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "10/29",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              68.9,
+              53.2,
+              37.4,
+              11.1
+            ],
+            "lane": 6,
+            "note": ""
+          },
+          {
+            "date": "12/11",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              80.6,
+              65.1,
+              50.8,
+              36.3,
+              11.9
+            ],
+            "lane": 5,
+            "note": "ヤブサメ(古オープン)馬なりの内0.9秒追走0.4秒先着"
+          },
+          {
+            "date": "12/18",
+            "course": "栗CW",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              79.8,
+              65.1,
+              51.2,
+              36.5,
+              11.4
+            ],
+            "lane": 7,
+            "note": "スマートサニー(古オープン)一杯の内0.5秒追走0.5秒 先着"
+          },
+          {
+            "date": "12/24",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              68.5,
+              53.0,
+              37.4,
+              11.3
+            ],
+            "lane": 6,
+            "note": ""
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.1,
+        "maxAll": 1.4,
+        "latest1F": 11.3,
+        "latest3F": 37.4,
+        "final": {
+          "date": "12/24",
+          "course": "栗CW",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            68.5,
+            53.0,
+            37.4,
+            11.3
+          ],
+          "lane": 6,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 13,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 3,
+        "number": 6,
+        "name": "メイショウタバル",
+        "sex": "牡",
+        "age": 4,
+        "weight": 58,
+        "jockey": "武豊",
+        "time": "2.32.6",
+        "adjustedTime": 86,
+        "margin": "クビ",
+        "pci": 49.7,
+        "corners": [
+          2,
+          2,
+          1,
+          1
+        ],
+        "ave3f": 36.6,
+        "last3f": 36.7,
+        "popularity": 4,
+        "odds": 5.8,
+        "bodyWeight": 512,
+        "bodyWeightDelta": 4,
+        "affiliation": "(栗)",
+        "trainer": "石橋守",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 7,
+      "waku": 4,
+      "name": "サンライズジパング",
+      "basic": {
+        "number": 7,
+        "waku": 4,
+        "name": "サンライズジパング",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "鮫島克駿",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "前川恭子",
+        "blinker": "",
+        "sire": "キズナ",
+        "dam": "サイマー",
+        "broodmareSire": "Zoffany",
+        "secondDam": "Serisia",
+        "zi": 103,
+        "pastIndexes": [
+          {
+            "value": 84,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": 93,
+            "surface": "D"
+          },
+          {
+            "value": 93,
+            "surface": "D"
+          }
+        ],
+        "jockeyChanged": true,
+        "odds": 122.5,
+        "popularity": 13,
+        "bodyWeight": 524,
+        "bodyWeightDelta": 0,
+        "foreignFlag": "",
+        "owner": "ライフハウス",
+        "breeder": "追分ファーム",
+        "color": "鹿毛",
+        "birthday": "3月16日"
+      },
+      "ability": {
+        "number": 7,
+        "waku": 4,
+        "name": "サンライズジパング",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "鮫島克駿",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "前川恭子",
+        "blinker": "",
+        "sire": "キズナ",
+        "dam": "サイマー",
+        "broodmareSire": "Zoffany",
+        "secondDam": "Serisia",
+        "zi": 103,
+        "pastIndexes": [
+          {
+            "value": 84,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": null,
+            "surface": "D"
+          },
+          {
+            "value": 93,
+            "surface": "D"
+          },
+          {
+            "value": 93,
+            "surface": "D"
+          }
+        ]
+      },
+      "training": {
+        "waku": 4,
+        "number": 7,
+        "name": "サンライズジパング",
+        "shortComment": "好時計は出たが",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "12/3",
+            "course": "栗坂",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              50.6,
+              37.0,
+              24.3,
+              12.2
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/18",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              54.6,
+              39.6,
+              25.8,
+              12.7
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "一杯に追う",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              51.9,
+              37.6,
+              24.3,
+              12.2
+            ],
+            "lane": null,
+            "note": "フィドルファドル(古馬2勝)馬なりを0.6秒追走同入"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 3,
+        "currentCount": 2,
+        "maxCurrent": 0.9,
+        "maxAll": 0.9,
+        "latest1F": 12.2,
+        "latest3F": 37.6,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "一杯に追う",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            51.9,
+            37.6,
+            24.3,
+            12.2
+          ],
+          "lane": null,
+          "note": "フィドルファドル(古馬2勝)馬なりを0.6秒追走同入"
+        }
+      },
+      "result": {
+        "finish": 5,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 4,
+        "number": 7,
+        "name": "サンライズジパング",
+        "sex": "牡",
+        "age": 4,
+        "weight": 58,
+        "jockey": "鮫島克駿",
+        "time": "2.31.8",
+        "adjustedTime": 94,
+        "margin": "3/4",
+        "pci": 56.2,
+        "corners": [
+          15,
+          14,
+          15,
+          16
+        ],
+        "ave3f": 36.95,
+        "last3f": 34.8,
+        "popularity": 13,
+        "odds": 122.5,
+        "bodyWeight": 524,
+        "bodyWeightDelta": 0,
+        "affiliation": "(栗)",
+        "trainer": "前川恭子",
+        "prize": 5000
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 8,
+      "waku": 4,
+      "name": "シュヴァリエローズ",
+      "basic": {
+        "number": 8,
+        "waku": 4,
+        "name": "シュヴァリエローズ",
+        "sex": "牡",
+        "age": 7,
+        "jockey": "北村友一",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "清水久詞",
+        "blinker": "",
+        "sire": "ディープインパクト",
+        "dam": "ヴィアンローズ",
+        "broodmareSire": "Sevres Rose",
+        "secondDam": "Princesse de Viane",
+        "zi": 88,
+        "pastIndexes": [
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 75,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 80,
+            "surface": "T"
+          },
+          {
+            "value": 89,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": true,
+        "odds": 154.1,
+        "popularity": 14,
+        "bodyWeight": 464,
+        "bodyWeightDelta": null,
+        "foreignFlag": "",
+        "owner": "キャロットファーム",
+        "breeder": "ノーザンファーム",
+        "color": "鹿毛",
+        "birthday": "5月 4日"
+      },
+      "ability": {
+        "number": 8,
+        "waku": 4,
+        "name": "シュヴァリエローズ",
+        "sex": "牡",
+        "age": 7,
+        "jockey": "北村友一",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "清水久詞",
+        "blinker": "",
+        "sire": "ディープインパクト",
+        "dam": "ヴィアンローズ",
+        "broodmareSire": "Sevres Rose",
+        "secondDam": "Princesse de Viane",
+        "zi": 88,
+        "pastIndexes": [
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 75,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 80,
+            "surface": "T"
+          },
+          {
+            "value": 89,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 4,
+        "number": 8,
+        "name": "シュヴァリエローズ",
+        "shortComment": "遠征の疲れなく",
+        "trend": "→",
+        "sessions": [
+          {
+            "overseas": true,
+            "times": []
+          },
+          {
+            "date": "12/17",
+            "course": "栗CW",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              82.2,
+              66.5,
+              51.4,
+              36.9,
+              11.4
+            ],
+            "lane": 7,
+            "note": ""
+          },
+          {
+            "date": "12/20",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "稍",
+            "prev": false,
+            "final": false,
+            "times": [
+              86.2,
+              69.5,
+              52.7,
+              37.4,
+              11.4
+            ],
+            "lane": 8,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              53.9,
+              39.2,
+              25.6,
+              12.8
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "overseas": true,
+            "times": []
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 3,
+        "currentCount": 3,
+        "maxCurrent": 1.0,
+        "maxAll": 1.0,
+        "latest1F": 12.8,
+        "latest3F": 39.2,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            53.9,
+            39.2,
+            25.6,
+            12.8
+          ],
+          "lane": null,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 10,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 4,
+        "number": 8,
+        "name": "シュヴァリエローズ",
+        "sex": "牡",
+        "age": 7,
+        "weight": 58,
+        "jockey": "北村友一",
+        "time": "2.32.4",
+        "adjustedTime": 88,
+        "margin": "3/4",
+        "pci": 54.0,
+        "corners": [
+          12,
+          11,
+          11,
+          12
+        ],
+        "ave3f": 36.92,
+        "last3f": 35.5,
+        "popularity": 14,
+        "odds": 154.1,
+        "bodyWeight": 464,
+        "bodyWeightDelta": null,
+        "affiliation": "(栗)",
+        "trainer": "清水久詞",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 9,
+      "waku": 5,
+      "name": "ダノンデサイル",
+      "basic": {
+        "number": 9,
+        "waku": 5,
+        "name": "ダノンデサイル",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "戸崎圭太",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "安田翔伍",
+        "blinker": "",
+        "sire": "エピファネイア",
+        "dam": "トップデサイル",
+        "broodmareSire": "Congrats",
+        "secondDam": "Sequoia Queen",
+        "zi": 122,
+        "pastIndexes": [
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 3.8,
+        "popularity": 2,
+        "bodyWeight": 514,
+        "bodyWeightDelta": 6,
+        "foreignFlag": "",
+        "owner": "ダノックス",
+        "breeder": "社台ファーム",
+        "color": "栗毛",
+        "birthday": "4月 6日"
+      },
+      "ability": {
+        "number": 9,
+        "waku": 5,
+        "name": "ダノンデサイル",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "戸崎圭太",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "安田翔伍",
+        "blinker": "",
+        "sire": "エピファネイア",
+        "dam": "トップデサイル",
+        "broodmareSire": "Congrats",
+        "secondDam": "Sequoia Queen",
+        "zi": 122,
+        "pastIndexes": [
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 5,
+        "number": 9,
+        "name": "ダノンデサイル",
+        "shortComment": "余裕ある動き",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/26",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              81.3,
+              65.0,
+              49.7,
+              35.3,
+              11.4
+            ],
+            "lane": 4,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              81.6,
+              66.4,
+              51.8,
+              37.1,
+              11.3
+            ],
+            "lane": 2,
+            "note": "ミッキーゴージャス(古オープン)馬なりの外0.4秒追 走同入"
+          },
+          {
+            "date": "12/21",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              58.9,
+              43.9,
+              29.2,
+              14.8
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              55.3,
+              40.9,
+              26.7,
+              13.5
+            ],
+            "lane": null,
+            "note": ""
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.0,
+        "maxAll": 1.0,
+        "latest1F": 13.5,
+        "latest3F": 40.9,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            55.3,
+            40.9,
+            26.7,
+            13.5
+          ],
+          "lane": null,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 3,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 5,
+        "number": 9,
+        "name": "ダノンデサイル",
+        "sex": "牡",
+        "age": 4,
+        "weight": 58,
+        "jockey": "戸崎圭太",
+        "time": "2.31.6",
+        "adjustedTime": 96,
+        "margin": "クビ",
+        "pci": 55.2,
+        "corners": [
+          9,
+          9,
+          8,
+          7
+        ],
+        "ave3f": 36.82,
+        "last3f": 35.0,
+        "popularity": 2,
+        "odds": 3.8,
+        "bodyWeight": 514,
+        "bodyWeightDelta": 6,
+        "affiliation": "(栗)",
+        "trainer": "安田翔伍",
+        "prize": 13000
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 10,
+      "waku": 5,
+      "name": "コスモキュランダ",
+      "basic": {
+        "number": 10,
+        "waku": 5,
+        "name": "コスモキュランダ",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "横山武史",
+        "weight": 58,
+        "affiliation": "(美)",
+        "trainer": "加藤士津",
+        "blinker": "B",
+        "sire": "アルアイン",
+        "dam": "サザンスピード",
+        "broodmareSire": "Southern Image",
+        "secondDam": "Golden Eagle",
+        "zi": 104,
+        "pastIndexes": [
+          {
+            "value": 83,
+            "surface": "T"
+          },
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": true,
+        "odds": 111.5,
+        "popularity": 12,
+        "bodyWeight": 522,
+        "bodyWeightDelta": 0,
+        "foreignFlag": "",
+        "owner": "ビッグレッドファーム",
+        "breeder": "ビッグレッドファーム",
+        "color": "黒鹿",
+        "birthday": "2月23日"
+      },
+      "ability": {
+        "number": 10,
+        "waku": 5,
+        "name": "コスモキュランダ",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "横山武史",
+        "weight": 58.0,
+        "affiliation": "(美)",
+        "trainer": "加藤士津",
+        "blinker": "B",
+        "sire": "アルアイン",
+        "dam": "サザンスピード",
+        "broodmareSire": "Southern Image",
+        "secondDam": "Golden Eagle",
+        "zi": 104,
+        "pastIndexes": [
+          {
+            "value": 83,
+            "surface": "T"
+          },
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 5,
+        "number": 10,
+        "name": "コスモキュランダ",
+        "shortComment": "ブリンカー効果有",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/26",
+            "course": "美坂",
+            "style": "末一杯追う",
+            "baba": "稍",
+            "prev": true,
+            "final": false,
+            "times": [
+              52.3,
+              38.7,
+              25.5,
+              12.2
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/18",
+            "course": "美W",
+            "style": "G前仕掛け",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              82.7,
+              66.3,
+              51.9,
+              37.4,
+              11.5
+            ],
+            "lane": 7,
+            "note": "プレイザリード(二歳未勝)一杯の内0.4秒追走0.6秒先 着"
+          },
+          {
+            "date": "12/21",
+            "course": "美坂",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": false,
+            "times": [
+              56.6,
+              41.3,
+              27.7,
+              13.4
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "美坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": true,
+            "times": [
+              52.7,
+              38.4,
+              24.7,
+              12.0
+            ],
+            "lane": null,
+            "note": "デザートイーグル(新馬)強めを0.6秒追走0.4秒先着"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.5,
+        "maxAll": 1.7,
+        "latest1F": 12.0,
+        "latest3F": 38.4,
+        "final": {
+          "date": "12/24",
+          "course": "美坂",
+          "style": "馬なり余力",
+          "baba": "良",
+          "prev": false,
+          "final": true,
+          "times": [
+            52.7,
+            38.4,
+            24.7,
+            12.0
+          ],
+          "lane": null,
+          "note": "デザートイーグル(新馬)強めを0.6秒追走0.4秒先着"
+        }
+      },
+      "result": {
+        "finish": 2,
+        "abnormalCode": "0",
+        "blinker": "B",
+        "waku": 5,
+        "number": 10,
+        "name": "コスモキュランダ",
+        "sex": "牡",
+        "age": 4,
+        "weight": 58,
+        "jockey": "横山武史",
+        "time": "2.31.6",
+        "adjustedTime": 96,
+        "margin": "1/2",
+        "pci": 53.3,
+        "corners": [
+          2,
+          3,
+          2,
+          2
+        ],
+        "ave3f": 36.66,
+        "last3f": 35.5,
+        "popularity": 12,
+        "odds": 111.5,
+        "bodyWeight": 522,
+        "bodyWeightDelta": 0,
+        "affiliation": "(美)",
+        "trainer": "加藤士津",
+        "prize": 20000
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 11,
+      "waku": 6,
+      "name": "ミステリーウェイ",
+      "basic": {
+        "number": 11,
+        "waku": 6,
+        "name": "ミステリーウェイ",
+        "sex": "セ",
+        "age": 7,
+        "jockey": "松本大輝",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "小林真也",
+        "blinker": "",
+        "sire": "ジャスタウェイ",
+        "dam": "ジプシーハイウェイ",
+        "broodmareSire": "High Chaparral",
+        "secondDam": "Rose Gypsy",
+        "zi": 119,
+        "pastIndexes": [
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 81,
+            "surface": "T"
+          },
+          {
+            "value": 72,
+            "surface": "T"
+          },
+          {
+            "value": 77,
+            "surface": "T"
+          },
+          {
+            "value": 80,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 53.5,
+        "popularity": 10,
+        "bodyWeight": 500,
+        "bodyWeightDelta": 0,
+        "foreignFlag": "",
+        "owner": "社台レースホース",
+        "breeder": "社台ファーム",
+        "color": "黒鹿",
+        "birthday": "3月12日"
+      },
+      "ability": {
+        "number": 11,
+        "waku": 6,
+        "name": "ミステリーウェイ",
+        "sex": "セ",
+        "age": 7,
+        "jockey": "松本大輝",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "小林真也",
+        "blinker": "",
+        "sire": "ジャスタウェイ",
+        "dam": "ジプシーハイウェイ",
+        "broodmareSire": "High Chaparral",
+        "secondDam": "Rose Gypsy",
+        "zi": 119,
+        "pastIndexes": [
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          },
+          {
+            "value": 81,
+            "surface": "T"
+          },
+          {
+            "value": 72,
+            "surface": "T"
+          },
+          {
+            "value": 77,
+            "surface": "T"
+          },
+          {
+            "value": 80,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 6,
+        "number": 11,
+        "name": "ミステリーウェイ",
+        "shortComment": "折り合いスムーズ",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/5",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              85.3,
+              69.8,
+              54.4,
+              38.4,
+              11.5
+            ],
+            "lane": 8,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              98.9,
+              67.0,
+              52.6,
+              37.5,
+              11.5
+            ],
+            "lane": 6,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              82.9,
+              68.0,
+              53.3,
+              38.2,
+              11.8
+            ],
+            "lane": 6,
+            "note": ""
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 3,
+        "currentCount": 2,
+        "maxCurrent": 0.9,
+        "maxAll": 1.3,
+        "latest1F": 11.8,
+        "latest3F": 38.2,
+        "final": {
+          "date": "12/24",
+          "course": "栗CW",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            82.9,
+            68.0,
+            53.3,
+            38.2,
+            11.8
+          ],
+          "lane": 6,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 16,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 6,
+        "number": 11,
+        "name": "ミステリーウェイ",
+        "sex": "セ",
+        "age": 7,
+        "weight": 58,
+        "jockey": "松本大輝",
+        "time": "2.32.8",
+        "adjustedTime": 84,
+        "margin": "クビ",
+        "pci": 49.5,
+        "corners": [
+          1,
+          1,
+          2,
+          4
+        ],
+        "ave3f": 36.63,
+        "last3f": 36.8,
+        "popularity": 10,
+        "odds": 53.5,
+        "bodyWeight": 500,
+        "bodyWeightDelta": 0,
+        "affiliation": "(栗)",
+        "trainer": "小林真也",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 12,
+      "waku": 6,
+      "name": "マイネルエンペラー",
+      "basic": {
+        "number": 12,
+        "waku": 6,
+        "name": "マイネルエンペラー",
+        "sex": "牡",
+        "age": 5,
+        "jockey": "丹内祐次",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "清水久詞",
+        "blinker": "",
+        "sire": "ゴールドシップ",
+        "dam": "マイネテレジア",
+        "broodmareSire": "ロージズインメイ",
+        "secondDam": "マイネヌーヴェル",
+        "zi": 108,
+        "pastIndexes": [
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": 84,
+            "surface": "T"
+          },
+          {
+            "value": 81,
+            "surface": "T"
+          },
+          {
+            "value": 79,
+            "surface": "T"
+          },
+          {
+            "value": 79,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 111.5,
+        "popularity": 11,
+        "bodyWeight": 490,
+        "bodyWeightDelta": 2,
+        "foreignFlag": "",
+        "owner": "サラブレッドクラブ・ラフィアン",
+        "breeder": "ビッグレッドファーム",
+        "color": "黒鹿",
+        "birthday": "3月13日"
+      },
+      "ability": {
+        "number": 12,
+        "waku": 6,
+        "name": "マイネルエンペラー",
+        "sex": "牡",
+        "age": 5,
+        "jockey": "丹内祐次",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "清水久詞",
+        "blinker": "",
+        "sire": "ゴールドシップ",
+        "dam": "マイネテレジア",
+        "broodmareSire": "ロージズインメイ",
+        "secondDam": "マイネヌーヴェル",
+        "zi": 108,
+        "pastIndexes": [
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": 94,
+            "surface": "T"
+          },
+          {
+            "value": 84,
+            "surface": "T"
+          },
+          {
+            "value": 81,
+            "surface": "T"
+          },
+          {
+            "value": 79,
+            "surface": "T"
+          },
+          {
+            "value": 79,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 6,
+        "number": 12,
+        "name": "マイネルエンペラー",
+        "shortComment": "丹念に乗り込む",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "4/30",
+            "course": "栗CW",
+            "style": "強めに追う",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              81.5,
+              66.1,
+              51.0,
+              36.1,
+              11.3
+            ],
+            "lane": 9,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "栗CW",
+            "style": "強め余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              80.9,
+              65.2,
+              51.1,
+              36.6,
+              11.4
+            ],
+            "lane": 9,
+            "note": "ブラックコーラル(二歳未勝)一杯の外1.6秒追走0.4秒 先着"
+          },
+          {
+            "date": "12/20",
+            "course": "栗CW",
+            "style": "強めに追う",
+            "baba": "稍",
+            "prev": false,
+            "final": false,
+            "times": [
+              83.1,
+              67.1,
+              52.0,
+              37.1,
+              11.1
+            ],
+            "lane": 9,
+            "note": "マイネルホウセン(二歳未勝)一杯の外1.2秒追走0.1秒 先着"
+          },
+          {
+            "date": "12/24",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              98.5,
+              67.8,
+              53.3,
+              37.9,
+              11.3
+            ],
+            "lane": 9,
+            "note": "レッドパラジウム(新馬)馬なりの外1.7秒追走同入"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.4,
+        "maxAll": 1.4,
+        "latest1F": 11.3,
+        "latest3F": 37.9,
+        "final": {
+          "date": "12/24",
+          "course": "栗CW",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            98.5,
+            67.8,
+            53.3,
+            37.9,
+            11.3
+          ],
+          "lane": 9,
+          "note": "レッドパラジウム(新馬)馬なりの外1.7秒追走同入"
+        }
+      },
+      "result": {
+        "finish": 9,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 6,
+        "number": 12,
+        "name": "マイネルエンペラー",
+        "sex": "牡",
+        "age": 5,
+        "weight": 58,
+        "jockey": "丹内祐次",
+        "time": "2.32.3",
+        "adjustedTime": 89,
+        "margin": "1",
+        "pci": 52.4,
+        "corners": [
+          7,
+          7,
+          4,
+          4
+        ],
+        "ave3f": 36.76,
+        "last3f": 35.9,
+        "popularity": 11,
+        "odds": 111.5,
+        "bodyWeight": 490,
+        "bodyWeightDelta": 2,
+        "affiliation": "(栗)",
+        "trainer": "清水久詞",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 13,
+      "waku": 7,
+      "name": "アドマイヤテラ",
+      "basic": {
+        "number": 13,
+        "waku": 7,
+        "name": "アドマイヤテラ",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "川田将雅",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "友道康夫",
+        "blinker": "",
+        "sire": "レイデオロ",
+        "dam": "アドマイヤミヤビ",
+        "broodmareSire": "ハーツクライ",
+        "secondDam": "レディスキッパー",
+        "zi": 0,
+        "pastIndexes": [
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 89,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 75,
+            "surface": "T"
+          },
+          {
+            "value": 74,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 50.3,
+        "popularity": 9,
+        "bodyWeight": 498,
+        "bodyWeightDelta": 4,
+        "foreignFlag": "",
+        "owner": "近藤旬子",
+        "breeder": "ノーザンファーム",
+        "color": "芦毛",
+        "birthday": "2月 7日"
+      },
+      "ability": {
+        "number": 13,
+        "waku": 7,
+        "name": "アドマイヤテラ",
+        "sex": "牡",
+        "age": 4,
+        "jockey": "川田将雅",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "友道康夫",
+        "blinker": "",
+        "sire": "レイデオロ",
+        "dam": "アドマイヤミヤビ",
+        "broodmareSire": "ハーツクライ",
+        "secondDam": "レディスキッパー",
+        "zi": 0,
+        "pastIndexes": [
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": 89,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 75,
+            "surface": "T"
+          },
+          {
+            "value": 74,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 7,
+        "number": 13,
+        "name": "アドマイヤテラ",
+        "shortComment": "反応ひと息",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/26",
+            "course": "栗坂",
+            "style": "強めに追う",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              52.8,
+              38.4,
+              25.0,
+              12.7
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/18",
+            "course": "栗CW",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              98.9,
+              67.1,
+              52.5,
+              37.2,
+              11.6
+            ],
+            "lane": 8,
+            "note": "ラヴェニュー(二歳1勝)末強めの外0.5秒先行0.4秒遅 れ"
+          },
+          {
+            "date": "12/21",
+            "course": "栗坂",
+            "style": "末強め追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              56.8,
+              41.0,
+              26.3,
+              12.9
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "強めに追う",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              55.4,
+              40.2,
+              26.3,
+              13.3
+            ],
+            "lane": null,
+            "note": ""
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.0,
+        "maxAll": 1.0,
+        "latest1F": 13.3,
+        "latest3F": 40.2,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "強めに追う",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            55.4,
+            40.2,
+            26.3,
+            13.3
+          ],
+          "lane": null,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 11,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 7,
+        "number": 13,
+        "name": "アドマイヤテラ",
+        "sex": "牡",
+        "age": 4,
+        "weight": 58,
+        "jockey": "川田将雅",
+        "time": "2.32.4",
+        "adjustedTime": 88,
+        "margin": "クビ",
+        "pci": 51.7,
+        "corners": [
+          4,
+          4,
+          4,
+          4
+        ],
+        "ave3f": 36.73,
+        "last3f": 36.1,
+        "popularity": 9,
+        "odds": 50.3,
+        "bodyWeight": 498,
+        "bodyWeightDelta": 4,
+        "affiliation": "(栗)",
+        "trainer": "友道康夫",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 14,
+      "waku": 7,
+      "name": "アラタ",
+      "basic": {
+        "number": 14,
+        "waku": 7,
+        "name": "アラタ",
+        "sex": "牡",
+        "age": 8,
+        "jockey": "大野拓弥",
+        "weight": 58,
+        "affiliation": "(美)",
+        "trainer": "和田勇介",
+        "blinker": "",
+        "sire": "キングカメハメハ",
+        "dam": "サンシャイン",
+        "broodmareSire": "ハーツクライ",
+        "secondDam": "バルドウィナ",
+        "zi": 100,
+        "pastIndexes": [
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 33,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 81,
+            "surface": "T"
+          },
+          {
+            "value": 89,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": true,
+        "odds": 174.2,
+        "popularity": 15,
+        "bodyWeight": 494,
+        "bodyWeightDelta": 10,
+        "foreignFlag": "",
+        "owner": "村田能光",
+        "breeder": "社台ファーム",
+        "color": "鹿毛",
+        "birthday": "3月16日"
+      },
+      "ability": {
+        "number": 14,
+        "waku": 7,
+        "name": "アラタ",
+        "sex": "牡",
+        "age": 8,
+        "jockey": "大野拓弥",
+        "weight": 58.0,
+        "affiliation": "(美)",
+        "trainer": "和田勇介",
+        "blinker": "",
+        "sire": "キングカメハメハ",
+        "dam": "サンシャイン",
+        "broodmareSire": "ハーツクライ",
+        "secondDam": "バルドウィナ",
+        "zi": 100,
+        "pastIndexes": [
+          {
+            "value": 86,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 33,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 81,
+            "surface": "T"
+          },
+          {
+            "value": 89,
+            "surface": "T"
+          },
+          {
+            "value": 82,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 7,
+        "number": 14,
+        "name": "アラタ",
+        "shortComment": "攻め意欲的も",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/19",
+            "course": "美W",
+            "style": "強めに追う",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              83.2,
+              66.3,
+              51.7,
+              37.5,
+              11.7
+            ],
+            "lane": 7,
+            "note": ""
+          },
+          {
+            "date": "12/17",
+            "course": "美W",
+            "style": "一杯に追う",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              66.7,
+              52.1,
+              38.1,
+              12.0
+            ],
+            "lane": 5,
+            "note": "カサブランカキッド(古馬1勝)強めの内0.7秒追走0.2 秒先着"
+          },
+          {
+            "date": "12/21",
+            "course": "美W",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": false,
+            "times": [
+              86.3,
+              70.3,
+              54.8,
+              39.9,
+              12.2
+            ],
+            "lane": 6,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "美W",
+            "style": "直強め追う",
+            "baba": "良",
+            "prev": false,
+            "final": true,
+            "times": [
+              82.6,
+              66.4,
+              52.2,
+              37.7,
+              12.3
+            ],
+            "lane": 7,
+            "note": "ロードスカイブルー(古馬1勝)馬なりの外0.6秒追走 0.1秒先着"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.1,
+        "maxAll": 1.1,
+        "latest1F": 12.3,
+        "latest3F": 37.7,
+        "final": {
+          "date": "12/24",
+          "course": "美W",
+          "style": "直強め追う",
+          "baba": "良",
+          "prev": false,
+          "final": true,
+          "times": [
+            82.6,
+            66.4,
+            52.2,
+            37.7,
+            12.3
+          ],
+          "lane": 7,
+          "note": "ロードスカイブルー(古馬1勝)馬なりの外0.6秒追走 0.1秒先着"
+        }
+      },
+      "result": {
+        "finish": 15,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 7,
+        "number": 14,
+        "name": "アラタ",
+        "sex": "牡",
+        "age": 8,
+        "weight": 58,
+        "jockey": "大野拓弥",
+        "time": "2.32.8",
+        "adjustedTime": 84,
+        "margin": "3/4",
+        "pci": 52.8,
+        "corners": [
+          12,
+          11,
+          11,
+          12
+        ],
+        "ave3f": 36.92,
+        "last3f": 35.9,
+        "popularity": 15,
+        "odds": 174.2,
+        "bodyWeight": 494,
+        "bodyWeightDelta": 10,
+        "affiliation": "(美)",
+        "trainer": "和田勇介",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 15,
+      "waku": 8,
+      "name": "エルトンバローズ",
+      "basic": {
+        "number": 15,
+        "waku": 8,
+        "name": "エルトンバローズ",
+        "sex": "牡",
+        "age": 5,
+        "jockey": "西村淳也",
+        "weight": 58,
+        "affiliation": "(栗)",
+        "trainer": "杉山晴紀",
+        "blinker": "",
+        "sire": "ディープブリランテ",
+        "dam": "ショウナンカラット",
+        "broodmareSire": "ブライアンズタイム",
+        "secondDam": "ニュースヴァリュー",
+        "zi": 115,
+        "pastIndexes": [
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 84,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": false,
+        "odds": 180.3,
+        "popularity": 16,
+        "bodyWeight": 514,
+        "bodyWeightDelta": -6,
+        "foreignFlag": "",
+        "owner": "猪熊広次",
+        "breeder": "桑田牧場",
+        "color": "鹿毛",
+        "birthday": "3月18日"
+      },
+      "ability": {
+        "number": 15,
+        "waku": 8,
+        "name": "エルトンバローズ",
+        "sex": "牡",
+        "age": 5,
+        "jockey": "西村淳也",
+        "weight": 58.0,
+        "affiliation": "(栗)",
+        "trainer": "杉山晴紀",
+        "blinker": "",
+        "sire": "ディープブリランテ",
+        "dam": "ショウナンカラット",
+        "broodmareSire": "ブライアンズタイム",
+        "secondDam": "ニュースヴァリュー",
+        "zi": 115,
+        "pastIndexes": [
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 84,
+            "surface": "T"
+          },
+          {
+            "value": 92,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          },
+          {
+            "value": 87,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 8,
+        "number": 15,
+        "name": "エルトンバローズ",
+        "shortComment": "力強い脚捌き",
+        "trend": "→",
+        "sessions": [
+          {
+            "date": "11/19",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": true,
+            "final": false,
+            "times": [
+              54.4,
+              38.7,
+              24.4,
+              11.8
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/18",
+            "course": "栗CW",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              85.6,
+              68.8,
+              53.0,
+              37.0,
+              11.1
+            ],
+            "lane": 6,
+            "note": ""
+          },
+          {
+            "date": "12/21",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              58.6,
+              42.6,
+              27.6,
+              13.8
+            ],
+            "lane": null,
+            "note": ""
+          },
+          {
+            "date": "12/24",
+            "course": "栗坂",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": true,
+            "times": [
+              56.0,
+              40.4,
+              25.6,
+              12.7
+            ],
+            "lane": null,
+            "note": ""
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.2,
+        "maxAll": 1.3,
+        "latest1F": 12.7,
+        "latest3F": 40.4,
+        "final": {
+          "date": "12/24",
+          "course": "栗坂",
+          "style": "馬なり余力",
+          "baba": "重",
+          "prev": false,
+          "final": true,
+          "times": [
+            56.0,
+            40.4,
+            25.6,
+            12.7
+          ],
+          "lane": null,
+          "note": ""
+        }
+      },
+      "result": {
+        "finish": 12,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 8,
+        "number": 15,
+        "name": "エルトンバローズ",
+        "sex": "牡",
+        "age": 5,
+        "weight": 58,
+        "jockey": "西村淳也",
+        "time": "2.32.6",
+        "adjustedTime": 86,
+        "margin": "1 1/4",
+        "pci": 51.9,
+        "corners": [
+          7,
+          7,
+          7,
+          7
+        ],
+        "ave3f": 36.79,
+        "last3f": 36.1,
+        "popularity": 16,
+        "odds": 180.3,
+        "bodyWeight": 514,
+        "bodyWeightDelta": -6,
+        "affiliation": "(栗)",
+        "trainer": "杉山晴紀",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    },
+    {
+      "number": 16,
+      "waku": 8,
+      "name": "タスティエーラ",
+      "basic": {
+        "number": 16,
+        "waku": 8,
+        "name": "タスティエーラ",
+        "sex": "牡",
+        "age": 5,
+        "jockey": "松山弘平",
+        "weight": 58,
+        "affiliation": "(美)",
+        "trainer": "堀宣行",
+        "blinker": "",
+        "sire": "サトノクラウン",
+        "dam": "パルティトゥーラ",
+        "broodmareSire": "マンハッタンカフェ",
+        "secondDam": "フォルテピアノ",
+        "zi": 112,
+        "pastIndexes": [
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          }
+        ],
+        "jockeyChanged": true,
+        "odds": 35.4,
+        "popularity": 8,
+        "bodyWeight": 502,
+        "bodyWeightDelta": 0,
+        "foreignFlag": "",
+        "owner": "キャロットファーム",
+        "breeder": "ノーザンファーム",
+        "color": "鹿毛",
+        "birthday": "3月22日"
+      },
+      "ability": {
+        "number": 16,
+        "waku": 8,
+        "name": "タスティエーラ",
+        "sex": "牡",
+        "age": 5,
+        "jockey": "松山弘平",
+        "weight": 58.0,
+        "affiliation": "(美)",
+        "trainer": "堀宣行",
+        "blinker": "",
+        "sire": "サトノクラウン",
+        "dam": "パルティトゥーラ",
+        "broodmareSire": "マンハッタンカフェ",
+        "secondDam": "フォルテピアノ",
+        "zi": 112,
+        "pastIndexes": [
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 93,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": null,
+            "surface": "T"
+          },
+          {
+            "value": 95,
+            "surface": "T"
+          },
+          {
+            "value": 91,
+            "surface": "T"
+          },
+          {
+            "value": 90,
+            "surface": "T"
+          }
+        ]
+      },
+      "training": {
+        "waku": 8,
+        "number": 16,
+        "name": "タスティエーラ",
+        "shortComment": "馬体気合共に絶好",
+        "trend": "↑",
+        "sessions": [
+          {
+            "date": "11/26",
+            "course": "美W",
+            "style": "馬なり余力",
+            "baba": "稍",
+            "prev": true,
+            "final": false,
+            "times": [
+              81.4,
+              65.3,
+              50.5,
+              36.2,
+              11.4
+            ],
+            "lane": 8,
+            "note": ""
+          },
+          {
+            "date": "12/18",
+            "course": "美W",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": false,
+            "times": [
+              81.1,
+              64.9,
+              50.2,
+              35.9,
+              11.6
+            ],
+            "lane": 2,
+            "note": "エコロシード(二歳1勝)末強めの内1.0秒追走同入"
+          },
+          {
+            "date": "12/21",
+            "course": "美坂",
+            "style": "馬なり余力",
+            "baba": "重",
+            "prev": false,
+            "final": false,
+            "times": [
+              56.0,
+              41.1,
+              26.6,
+              12.7
+            ],
+            "lane": null,
+            "note": "ハードセルツァー(古馬2勝)馬なりと同入"
+          },
+          {
+            "date": "12/24",
+            "course": "美W",
+            "style": "馬なり余力",
+            "baba": "良",
+            "prev": false,
+            "final": true,
+            "times": [
+              80.9,
+              64.2,
+              49.9,
+              35.6,
+              11.8
+            ],
+            "lane": 2,
+            "note": "エコロシード(二歳1勝)馬なりの内0.7秒追走0.1秒先 着"
+          }
+        ]
+      },
+      "trainingSummary": {
+        "count": 4,
+        "currentCount": 3,
+        "maxCurrent": 1.8,
+        "maxAll": 1.8,
+        "latest1F": 11.8,
+        "latest3F": 35.6,
+        "final": {
+          "date": "12/24",
+          "course": "美W",
+          "style": "馬なり余力",
+          "baba": "良",
+          "prev": false,
+          "final": true,
+          "times": [
+            80.9,
+            64.2,
+            49.9,
+            35.6,
+            11.8
+          ],
+          "lane": 2,
+          "note": "エコロシード(二歳1勝)馬なりの内0.7秒追走0.1秒先 着"
+        }
+      },
+      "result": {
+        "finish": 6,
+        "abnormalCode": "0",
+        "blinker": "",
+        "waku": 8,
+        "number": 16,
+        "name": "タスティエーラ",
+        "sex": "牡",
+        "age": 5,
+        "weight": 58,
+        "jockey": "松山弘平",
+        "time": "2.32.0",
+        "adjustedTime": 92,
+        "margin": "1",
+        "pci": 52.9,
+        "corners": [
+          5,
+          5,
+          4,
+          3
+        ],
+        "ave3f": 36.73,
+        "last3f": 35.7,
+        "popularity": 8,
+        "odds": 35.4,
+        "bodyWeight": 502,
+        "bodyWeightDelta": 0,
+        "affiliation": "(美)",
+        "trainer": "堀宣行",
+        "prize": 0
+      },
+      "sourceStatus": {
+        "targetText": true,
+        "training": true,
+        "entryCsv": true,
+        "resultCsv": true
+      }
+    }
+  ],
+  "counts": {
+    "targetText": 16,
+    "training": 16,
+    "entryCsv": 16,
+    "resultCsv": 16,
+    "merged": 16,
+    "preRaceComplete": 16,
+    "entryMatched": 16,
+    "resultMatched": 16
+  },
+  "diagnostics": [],
+  "sourceFiles": {
+    "targetText": "20251228S.txt",
+    "training": "調教PDF",
+    "entryCsv": "20251228SC.csv",
+    "resultCsv": "20251228.csv"
+  },
+  "createdAt": "2026-07-12T00:00:00.000Z",
+  "savedAt": null
+}

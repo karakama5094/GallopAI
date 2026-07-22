@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // GallopAI stores all private data below the authenticated user's UID.
+    // This recursive rule supports v3.3.2 Horse formal fields and compatibility subcollections,
+    // race analyses, global research statistics and metadata.
+    match /users/{userId}/{document=**} {
+      allow read, create, update, delete:
+        if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/research/{section}/{docId} {
+      allow read, create, update, delete:
+        if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "versions": {
+    "FEATURE_SCHEMA_VERSION": "3.3.2",
+    "FEATURE_ENGINE_VERSION": "3.3.2",
+    "DATA_MODEL_VERSION": "3.3.2"
+  },
+  "horseCount": 16,
+  "featureCount": 240,
+  "dictionaryCount": 240,
+  "formalFields": [
+    "raw",
+    "features",
+    "quality",
+    "ocr",
+    "logs",
+    "versions"
+  ],
+  "qualityKeys": [
+    "qualityScore",
+    "missingCount",
+    "duplicateFlag",
+    "warning",
+    "validationStatus"
+  ],
+  "ocrKeys": [
+    "confidence",
+    "engineVersion",
+    "parseVersion",
+    "pdfPages"
+  ],
+  "logKeys": [
+    "createdAt",
+    "updatedAt",
+    "featureVersion",
+    "engineVersion",
+    "calculationTime",
+    "recalculateHistory"
+  ],
+  "analysisQualityRecorded": 16,
+  "analysisOcrRecorded": 16,
+  "mlEnabled": false,
+  "minRaces": 50,
+  "staticChecks": "passed",
+  "testedAt": "2026-07-15T04:07:50.312Z"
+}
