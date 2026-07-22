@@ -14,7 +14,7 @@ Horse
   versions
 ```
 
-`calculationLog`は`logs.recalculateHistory`へ統合され、移行後は削除されます。
+SaveEngineはこの6セクションのみを直接生成・保存し、読み込みもHorseルートの正式構造だけを使用します。
 
 ## 保存順序
 
