@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
+import {buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -168,4 +168,24 @@ test("trend CSV exports escape labels and comparison data",()=>{
   assert.match(monthlyTrendsCsv(buildMonthlyTrends(trends)),/2026-01/);
   const comparison=comparePeriods(trends,{currentStart:"2026-01-01",currentEnd:"2026-01-01",comparisonStart:"2026-01-01",comparisonEnd:"2026-01-01"});
   assert.match(periodComparisonCsv(comparison),/absoluteDifference/);
+});
+
+test("feature coverage handles numeric, nonnumeric, missing, zero, and population SD",()=>{
+ const rows=buildFeatureCoverage([{horses:[horse({features:{x:0}}),horse({features:{x:2,y:"bad"}}),horse({features:{}})]}],[{key:"x",名称:"X",group:"g",availablePreRace:true,leakageRisk:"PRE"}]);
+ assert.equal(rows[0].numericCount,2);assert.equal(rows[0].missingCount,1);assert.equal(rows[0].zeroValueCount,1);assert.equal(rows[0].mean,1);assert.equal(rows[0].standardDeviation,1);
+});
+test("coverage boundaries and combined filters",()=>{
+ assert.deepEqual([95,80,50,49.9].map(coverageClass),["excellent","good","warning","critical"]);
+ const rows=[{key:"abc",name:"Alpha",group:"g",coverageClass:"good",availablePreRace:true,leakageRisk:"LOW",coveragePercentage:85}];
+ assert.equal(filterFeatureCoverage(rows,{group:"g",coverageClass:"good",availablePreRace:"true",leakageRisk:"LOW",minimumCoverage:80,search:"alp"}).length,1);
+});
+test("monthly stability ordering, undated, changes and warnings",()=>{
+ const races=[{meta:{date:"2026-01-01"},horses:Array.from({length:3},()=>horse({features:{x:10}}))},{meta:{date:"2026-02-01"},horses:[horse({features:{}}),horse({features:{}}),horse({features:{}})]},{horses:Array.from({length:3},()=>horse({features:{x:20}}))}];
+ const rows=buildFeatureStability(races,"x"),warnings=featureStabilityWarnings(rows);
+ assert.deepEqual(rows.map(r=>r.month),["2026-01","2026-02","undated"]);assert.equal(rows[1].meanDifference,null);
+ assert.ok(warnings.some(w=>w.type==="newly-missing"));assert.ok(warnings.some(w=>w.type==="newly-restored"));assert.ok(warnings.some(w=>w.type==="zero-variance"));assert.ok(warnings.some(w=>w.type==="insufficient-sample"));
+});
+test("feature audit uses canonical roots and escapes CSV",()=>{
+ const rows=buildFeatureCoverage([{features:{x:999},horses:[horse({features:{x:1}})]}],[{key:"x",名称:'X, "name"'}]);
+ assert.equal(rows[0].mean,1);assert.match(featureCoverageCsv(rows),/"X, ""name"""/);
 });
