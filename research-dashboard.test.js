@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildVersionRecalculationAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterVersionAuditIssues,paginate,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
+import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -239,4 +239,38 @@ test("version audit sorting is stable and exports full escaped collections",()=>
  assert.equal(filtered.length,2);assert.equal(paginate(filtered,1,25).rows.length,2);
  assert.match(versionAuditIssuesCsv(filtered),/"r,1"/);assert.match(versionDistributionCsv(audit.dataModelDistribution),/mostCommon/);
  assert.match(versionMatrixCsv(audit.matrix),/dataModelVersion/);assert.match(recalculationAuditCsv(audit),/oldestValid/);
+});
+test("provenance dynamically discovers sources and handles missing and empty raw",()=>{
+ const model=buildCanonicalResearchModel([{raceId:"r",horses:[horse({raw:{targetText:{x:1},entryCsv:{}}}),horse({raw:{}}),horse({raw:undefined})]}]);
+ const audit=buildProvenanceFreshnessAudit(model,[],new Date("2026-02-01T00:00:00Z"));
+ assert.equal(audit.sourceCoverage.find(x=>x.sourceKey==="targetText").availableDataCount,1);
+ assert.equal(audit.sourceCoverage.find(x=>x.sourceKey==="entryCsv").emptyObjectCount,1);
+ assert.equal(audit.sourceCoverage.find(x=>x.sourceKey==="(raw missing)").horseCount,1);
+ assert.ok(audit.issues.some(x=>x.type==="empty-raw-section"));assert.ok(audit.issues.some(x=>x.type==="missing-raw-section"));
+});
+test("required sources come only from dictionary metadata and support not configured",()=>{
+ assert.deepEqual(requiredSourcesFromDictionary([{sourceFields:["targetText","entryCsv"]},{sourceFields:["targetText"]}]),["entryCsv","targetText"]);
+ const model=buildCanonicalResearchModel([{raceId:"r",horses:[horse({raw:{targetText:{x:1}}})]}]);
+ assert.equal(buildProvenanceFreshnessAudit(model,[],new Date()).requiredSourcesConfigured,false);
+ const audit=buildProvenanceFreshnessAudit(model,[{sourceFields:["targetText","entryCsv"]}],new Date());
+ assert.equal(audit.incompleteRequiredCount,1);assert.ok(audit.issues.some(x=>x.type==="missing-required-source"));
+});
+test("freshness uses one instant and exact boundaries",()=>{
+ const now=new Date("2026-02-01T00:00:00Z"),day=86400000,at=ms=>new Date(now.getTime()-ms).toISOString();
+ const logs=[at(day),at(7*day),at(30*day),at(30*day+1),new Date(now.getTime()+1).toISOString(),"bad",null].map(updatedAt=>updatedAt===null?{}:{updatedAt});
+ const audit=buildProvenanceFreshnessAudit(buildCanonicalResearchModel([{raceId:"r",horses:logs.map(log=>horse({raw:{x:{a:1}},logs:log}))}]),[],now);
+ assert.deepEqual(audit.rows.map(x=>x.freshnessCategory),["within-24-hours","1-7-days","8-30-days","over-30-days","future","invalid","missing"]);
+ assert.equal(audit.calculationTime,now.toISOString());
+});
+test("provenance race ordering, combined filters, pagination and canonical roots",()=>{
+ const races=[{raceId:"u",raw:{fallback:{}},logs:{updatedAt:"2026-01-01"},horses:[horse({name:"Alpha",raw:undefined,logs:{}})]},{raceId:"d",meta:{date:"2026-01-01"},horses:[horse({raw:{targetText:{x:1}},logs:{updatedAt:"bad"}})]}];
+ const audit=buildProvenanceFreshnessAudit(buildCanonicalResearchModel(races),[{sourceFields:["targetText"]}],new Date("2026-02-01"));
+ assert.deepEqual(audit.raceRows.map(x=>x.raceId),["d","u"]);
+ const filtered=filterProvenanceIssues(audit.issues,{severity:"error",type:"missing-raw-section",freshnessCategory:"missing",raceId:"u",minimumSourceCoverage:0,search:"alpha"});
+ assert.equal(filtered.length,1);assert.equal(paginate(filtered,1,25).total,1);
+});
+test("provenance CSV exports escape full filtered data with BOM",()=>{
+ const audit=buildProvenanceFreshnessAudit(buildCanonicalResearchModel([{raceId:"r,1",meta:{raceName:'A, "Race"'},horses:[horse({raw:undefined,logs:{}})]}]),[],new Date());
+ for(const csv of [sourceCoverageCsv(audit.sourceCoverage),freshnessSummaryCsv(audit.freshnessSummary),provenanceRaceCsv(audit.raceRows),provenanceIssuesCsv(audit.issues)])assert.equal(csv.charCodeAt(0),0xFEFF);
+ assert.match(provenanceIssuesCsv(audit.issues),/"r,1"/);
 });
