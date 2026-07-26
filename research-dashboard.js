@@ -1,4 +1,3 @@
-
 export const RESEARCH_RACE_TARGET=50;
 
 const numeric=value=>value!==null&&value!==""&&Number.isFinite(Number(value));
@@ -244,4 +243,3 @@ export function buildResearchDashboard(races=[]){
     showAiTrainingControls:raceCount>=RESEARCH_RACE_TARGET
   };
 }
-
