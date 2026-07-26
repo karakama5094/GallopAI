@@ -397,6 +397,74 @@ export function freshnessSummaryCsv(rows=[]){return rowsCsv(["category","count",
 export function provenanceRaceCsv(rows=[]){return rowsCsv(["raceDate","raceName","raceId","horseCount","averageSourceCoverage","missingRawCount","missingRequiredCount","freshCount","staleCount","futureCount","missingTimestampCount","invalidTimestampCount"],rows.map(r=>[r.raceDate||"日付不明",r.raceName,r.raceId,r.horseCount,r.averageSourceCoverage,r.missingRawCount,r.missingRequiredCount,r.freshCount,r.staleCount,r.futureCount,r.missingTimestampCount,r.invalidTimestampCount]));}
 export function provenanceIssuesCsv(rows=[]){return rowsCsv(["severity","type","raceDate","raceName","raceId","horseNumber","horseName","presentSources","missingRequiredSources","freshnessCategory","lastRecalculationTime","message"],rows.map(r=>[r.severity,r.type,r.date||"日付不明",r.raceName,r.raceId,r.number,r.horseName,r.presentSources.join(" | "),r.missingRequiredSources.join(" | "),r.freshnessCategory,r.recalculationTime,r.message]));}
 
+export const SCHEMA_AUDIT_MAX_DEPTH=6,SCHEMA_VALUE_PREVIEW_MAX_LENGTH=80;
+const timestampDesignatedPath=path=>/(^|\.)(at|date|time|timestamp|updatedAt|createdAt|calculatedAt|extractedAt)$/i.test(path);
+export function schemaRuntimeType(value,path=""){
+  if(value===null)return"null";
+  if(typeof value?.toDate==="function")return"timestamp-like";
+  if(value instanceof Date)return timestampDesignatedPath(path)&&!Number.isNaN(value.getTime())?"timestamp-like":"object";
+  if(typeof value==="string"){
+    if(timestampDesignatedPath(path)&&/^\d{4}-\d{2}-\d{2}T/.test(value)&&parseAuditTimestamp(value).kind==="valid")return"timestamp-like";
+    return"string";
+  }
+  if(typeof value==="number")return Number.isFinite(value)?"finite number":"non-finite number";
+  if(typeof value==="boolean")return"boolean";
+  if(Array.isArray(value))return"array";
+  return typeof value==="object"?"object":typeof value;
+}
+export function schemaValuePreview(value,maxLength=SCHEMA_VALUE_PREVIEW_MAX_LENGTH){
+  let text;try{text=typeof value==="string"?value:Array.isArray(value)?`Array(${value.length})`:value&&typeof value==="object"?`Object(${Object.keys(value).length})`:String(value);}catch{text="[unavailable]";}
+  return text.length>maxLength?`${text.slice(0,maxLength-1)}…`:text;
+}
+const dominantType=counts=>[...counts].filter(([type])=>type!=="null").sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]||[null,0];
+const expectedFeatureType=item=>String(item?.型||item?.type||"").includes("number")?"finite number":String(item?.型||item?.type||"").includes("boolean")?"boolean":String(item?.型||item?.type||"").includes("string")?"string":"";
+export function buildSchemaTypeAudit(model,dictionary=[]){
+  const total=model.horses.length,observations=new Map(),depthIssues=[],dictionaryMap=new Map(dictionary.map(item=>[`features.${item.key}`,expectedFeatureType(item)]));
+  const sectionConformance=CANONICAL_SECTIONS.map(section=>{
+    const values=model.horses.map(row=>row[section]),presentCount=values.filter(value=>value!==undefined).length,objectCount=values.filter(value=>value!==null&&typeof value==="object"&&!Array.isArray(value)).length;
+    const invalidTypeCount=values.filter(value=>value!==undefined&&(value===null||typeof value!=="object"||Array.isArray(value))).length,emptyObjectCount=values.filter(value=>value&&typeof value==="object"&&!Array.isArray(value)&&!Object.keys(value).length).length;
+    return{section,presentCount,missingCount:total-presentCount,objectCount,invalidTypeCount,emptyObjectCount,conformancePercentage:percentage(objectCount,total)};
+  });
+  const addObservation=(row,section,path,value)=>{
+    const entry=observations.get(path)||{section,fieldPath:path,items:[],horses:new Set(),races:new Map()};
+    const type=schemaRuntimeType(value,path),item={row,value,type,preview:schemaValuePreview(value)};entry.items.push(item);entry.horses.add(row.originalIndex??`${row.raceIndex}:${row.horseIndex}`);
+    const race=entry.races.get(row.raceId)||{raceId:row.raceId,raceDate:row.date,raceName:row.race?.meta?.raceName||row.race?.raceName||row.raceId,items:[]};race.items.push(item);entry.races.set(row.raceId,race);observations.set(path,entry);
+  };
+  const walk=(row,section,value,path,depth)=>{
+    addObservation(row,section,path,value);
+    if(!value||typeof value!=="object"||Array.isArray(value)||typeof value?.toDate==="function"||value instanceof Date)return;
+    const keys=Object.keys(value);if(depth>=SCHEMA_AUDIT_MAX_DEPTH&&keys.length){depthIssues.push({row,section,fieldPath:path,value});return;}
+    for(const key of keys)walk(row,section,value[key],`${path}.${key}`,depth+1);
+  };
+  model.horses.forEach((row,index)=>{row.originalIndex=index;for(const section of CANONICAL_SECTIONS)if(row[section]!==undefined)walk(row,section,row[section],section,0);});
+  const inventory=[...observations.values()].map(entry=>{
+    const counts=new Map();for(const item of entry.items)counts.set(item.type,(counts.get(item.type)||0)+1);const [dominant,dominantCount]=dominantType(counts);
+    return{section:entry.section,fieldPath:entry.fieldPath,observedHorseCount:entry.horses.size,coveragePercentage:percentage(entry.horses.size,total),observedTypes:[...counts.keys()].sort(),
+      dominantType:dominant,dominantTypeCount:dominantCount,dominantTypePercentage:percentage(dominantCount,entry.items.filter(item=>item.type!=="null").length),
+      nullCount:counts.get("null")||0,emptyStringCount:entry.items.filter(item=>item.value==="").length,emptyArrayCount:entry.items.filter(item=>Array.isArray(item.value)&&!item.value.length).length,
+      emptyObjectCount:entry.items.filter(item=>item.value&&typeof item.value==="object"&&!Array.isArray(item.value)&&typeof item.value?.toDate!=="function"&&!Object.keys(item.value).length).length,
+      typeCounts:Object.fromEntries(counts),expectedType:dictionaryMap.get(entry.fieldPath)||"",_entry:entry};
+  }).sort((a,b)=>a.section.localeCompare(b.section)||a.fieldPath.localeCompare(b.fieldPath));
+  const stability=[];for(const field of inventory)for(const race of field._entry.races.values()){const counts=new Map();for(const item of race.items)if(item.type!=="null")counts.set(item.type,(counts.get(item.type)||0)+1);const [dominant,count]=dominantType(counts);stability.push({fieldPath:field.fieldPath,section:field.section,...race,observedTypes:[...counts.keys()].sort(),dominantType:dominant,dominantTypeCount:count,observationCount:race.items.length});}
+  stability.sort((a,b)=>a.fieldPath.localeCompare(b.fieldPath)||(a.raceDate&&b.raceDate?a.raceDate.localeCompare(b.raceDate):a.raceDate?-1:b.raceDate?1:a.raceId.localeCompare(b.raceId)));
+  const issues=[],add=(row,severity,type,section,fieldPath,observedType,expectedType,value,message)=>issues.push({severity,type,section,fieldPath,raceDate:row.date,raceName:row.race?.meta?.raceName||row.race?.raceName||row.raceId,raceId:row.raceId,horseNumber:row.number,horseName:row.name,observedType,expectedType,valuePreview:schemaValuePreview(value),message,originalIndex:row.originalIndex});
+  for(const row of model.horses)for(const section of CANONICAL_SECTIONS){const value=row[section];if(value===undefined)add(row,"error","missing-canonical-section",section,section,"missing","object",value,`${section}セクションがありません`);else if(value===null||typeof value!=="object"||Array.isArray(value))add(row,"error","invalid-canonical-section-type",section,section,schemaRuntimeType(value,section),"object",value,`${section}のルート型がobjectではありません`);}
+  for(const item of depthIssues)add(item.row,"warning","traversal-depth-exceeded",item.section,item.fieldPath,"object","",item.value,`最大走査深度${SCHEMA_AUDIT_MAX_DEPTH}を超える内容があります`);
+  for(const field of inventory){
+    const nonNull=field.observedTypes.filter(type=>type!=="null");if(nonNull.length>1){const first=field._entry.items.find(item=>item.type!=="null");add(first.row,"warning","mixed-runtime-types",field.section,field.fieldPath,nonNull.join(" | "),field.expectedType,first.value,"複数の非null runtime typeが観測されました");}
+    for(const item of field._entry.items){if(item.type==="non-finite number")add(item.row,"error","non-finite-number",field.section,field.fieldPath,item.type,field.expectedType,item.value,"非有限数が観測されました");if(field.expectedType&&item.type!=="null"&&item.type!==field.expectedType)add(item.row,"error","feature-dictionary-type-conflict",field.section,field.fieldPath,item.type,field.expectedType,item.value,"feature dictionaryの型と一致しません");}
+    const raceRows=stability.filter(row=>row.fieldPath===field.fieldPath&&row.dominantType),types=[...new Set(raceRows.map(row=>row.dominantType))];if(types.length>1){const sample=field._entry.items[0];add(sample.row,"warning","cross-race-dominant-type-drift",field.section,field.fieldPath,types.join(" | "),field.expectedType,sample.value,"レース間でdominant typeが変化しています");}
+  }
+  return{sectionConformance,inventory:inventory.map(({_entry,...item})=>item),stability,issues:sortSchemaIssues(issues)};
+}
+export function sortSchemaIssues(rows=[]){const rank={error:0,warning:1};return stableSort(rows,(a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)||(a.raceDate&&b.raceDate?a.raceDate.localeCompare(b.raceDate):a.raceDate?-1:b.raceDate?1:0)||a.raceId.localeCompare(b.raceId)||String(a.horseNumber??"").localeCompare(String(b.horseNumber??""),undefined,{numeric:true})||a.fieldPath.localeCompare(b.fieldPath)||a.type.localeCompare(b.type));}
+export function filterSchemaInventory(rows=[],f={}){const q=String(f.search||"").toLowerCase();return rows.filter(row=>(!f.section||row.section===f.section)&&(!f.fieldPath||row.fieldPath.includes(f.fieldPath))&&(!f.observedType||row.observedTypes.includes(f.observedType))&&(!f.expectedType||row.expectedType===f.expectedType)&&(!f.mixedTypesOnly||row.observedTypes.filter(x=>x!=="null").length>1)&&(!q||row.fieldPath.toLowerCase().includes(q))); }
+export function filterSchemaIssues(rows=[],f={}){const q=String(f.search||"").toLowerCase();return sortSchemaIssues(rows.filter(row=>(!f.severity||row.severity===f.severity)&&(!f.type||row.type===f.type)&&(!f.section||row.section===f.section)&&(!f.fieldPath||row.fieldPath.includes(f.fieldPath))&&(!f.observedType||row.observedType.includes(f.observedType))&&(!f.expectedType||row.expectedType===f.expectedType)&&(!f.raceId||row.raceId===f.raceId)&&(!f.mixedTypesOnly||row.type==="mixed-runtime-types")&&(!q||`${row.fieldPath} ${row.raceName} ${row.horseName} ${row.message}`.toLowerCase().includes(q))));}
+export function schemaConformanceCsv(rows=[]){return rowsCsv(["section","presentCount","missingCount","objectCount","invalidTypeCount","emptyObjectCount","conformancePercentage"],rows.map(r=>[r.section,r.presentCount,r.missingCount,r.objectCount,r.invalidTypeCount,r.emptyObjectCount,r.conformancePercentage]));}
+export function schemaInventoryCsv(rows=[]){return rowsCsv(["section","fieldPath","observedHorseCount","coveragePercentage","observedTypes","dominantType","dominantTypeCount","dominantTypePercentage","nullCount","emptyStringCount","emptyArrayCount","emptyObjectCount","expectedType"],rows.map(r=>[r.section,r.fieldPath,r.observedHorseCount,r.coveragePercentage,r.observedTypes.join(" | "),r.dominantType,r.dominantTypeCount,r.dominantTypePercentage,r.nullCount,r.emptyStringCount,r.emptyArrayCount,r.emptyObjectCount,r.expectedType]));}
+export function schemaStabilityCsv(rows=[]){return rowsCsv(["section","fieldPath","raceDate","raceName","raceId","observedTypes","dominantType","dominantTypeCount","observationCount"],rows.map(r=>[r.section,r.fieldPath,r.raceDate||"日付不明",r.raceName,r.raceId,r.observedTypes.join(" | "),r.dominantType,r.dominantTypeCount,r.observationCount]));}
+export function schemaIssuesCsv(rows=[]){return rowsCsv(["severity","type","section","fieldPath","raceDate","raceName","raceId","horseNumber","horseName","observedType","expectedType","valuePreview","message"],rows.map(r=>[r.severity,r.type,r.section,r.fieldPath,r.raceDate||"日付不明",r.raceName,r.raceId,r.horseNumber,r.horseName,r.observedType,r.expectedType,r.valuePreview,r.message]));}
+
 export function buildResearchDashboard(races=[]){
   const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
   const qualityScores=horses.map(({horse})=>horse.quality?.qualityScore).filter(numeric).map(Number);

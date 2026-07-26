@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
+import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildSchemaTypeAudit,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaRuntimeType,schemaStabilityCsv,schemaValuePreview,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -273,4 +273,39 @@ test("provenance CSV exports escape full filtered data with BOM",()=>{
  const audit=buildProvenanceFreshnessAudit(buildCanonicalResearchModel([{raceId:"r,1",meta:{raceName:'A, "Race"'},horses:[horse({raw:undefined,logs:{}})]}]),[],new Date());
  for(const csv of [sourceCoverageCsv(audit.sourceCoverage),freshnessSummaryCsv(audit.freshnessSummary),provenanceRaceCsv(audit.raceRows),provenanceIssuesCsv(audit.issues)])assert.equal(csv.charCodeAt(0),0xFEFF);
  assert.match(provenanceIssuesCsv(audit.issues),/"r,1"/);
+});
+test("schema section conformance covers missing, object, invalid and empty states",()=>{
+ const audit=buildSchemaTypeAudit(buildCanonicalResearchModel([{raceId:"r",horses:[horse({raw:{}}),horse({raw:[]}),horse({raw:null}),horse({raw:undefined})]}]));
+ const raw=audit.sectionConformance.find(x=>x.section==="raw");assert.deepEqual([raw.presentCount,raw.missingCount,raw.objectCount,raw.invalidTypeCount,raw.emptyObjectCount],[3,1,1,2,1]);
+ assert.ok(audit.issues.some(x=>x.type==="missing-canonical-section"));assert.ok(audit.issues.some(x=>x.type==="invalid-canonical-section-type"));
+});
+test("schema path discovery excludes array indexes and enforces depth",()=>{
+ let nested={leaf:1};for(let i=0;i<SCHEMA_AUDIT_MAX_DEPTH+2;i++)nested={x:nested};
+ const audit=buildSchemaTypeAudit(buildCanonicalResearchModel([{raceId:"r",horses:[horse({raw:{items:[{secret:1}],nested}})]}]));
+ assert.ok(audit.inventory.some(x=>x.fieldPath==="raw.items"));assert.ok(!audit.inventory.some(x=>x.fieldPath.includes(".0")));
+ assert.ok(audit.issues.some(x=>x.type==="traversal-depth-exceeded"));
+});
+test("schema runtime types handle timestamps, date strings and non-finite numbers",()=>{
+ assert.equal(schemaRuntimeType({toDate:()=>new Date()},"logs.at"),"timestamp-like");
+ assert.equal(schemaRuntimeType("2026-01-01T00:00:00Z","logs.updatedAt"),"timestamp-like");
+ assert.equal(schemaRuntimeType("2026-01-01","raw.date"),"string");
+ assert.equal(schemaRuntimeType(Infinity,"features.x"),"non-finite number");
+});
+test("schema inventory counts null and empty values with deterministic type ties",()=>{
+ const audit=buildSchemaTypeAudit(buildCanonicalResearchModel([{raceId:"r",horses:[horse({features:{x:1,e:"",a:[]}}),horse({features:{x:"1",e:null,a:{}}})]}]));
+ const x=audit.inventory.find(r=>r.fieldPath==="features.x");assert.equal(x.dominantType,"finite number");assert.deepEqual(x.observedTypes,["finite number","string"]);
+ assert.equal(audit.inventory.find(r=>r.fieldPath==="features.e").nullCount,1);assert.equal(audit.inventory.find(r=>r.fieldPath==="features.a").emptyArrayCount,1);
+});
+test("schema detects dictionary conflicts and cross-race drift chronologically",()=>{
+ const model=buildCanonicalResearchModel([{raceId:"late",meta:{date:"2026-02-01"},horses:[horse({features:{x:"bad"}})]},{raceId:"early",meta:{date:"2026-01-01"},horses:[horse({features:{x:1}})]},{raceId:"u",horses:[horse({features:{x:2}})]}]);
+ const audit=buildSchemaTypeAudit(model,[{key:"x",型:"number|null"}]);assert.ok(audit.issues.some(x=>x.type==="feature-dictionary-type-conflict"));assert.ok(audit.issues.some(x=>x.type==="cross-race-dominant-type-drift"));
+ assert.deepEqual(audit.stability.filter(x=>x.fieldPath==="features.x").map(x=>x.raceId),["early","late","u"]);
+});
+test("schema previews, filters, pagination and CSV are bounded and escaped",()=>{
+ const preview=schemaValuePreview('A, "'.padEnd(200,"x"));assert.ok(preview.length<=SCHEMA_VALUE_PREVIEW_MAX_LENGTH);
+ const audit=buildSchemaTypeAudit(buildCanonicalResearchModel([{raceId:"r,1",horses:[horse({features:{x:"bad"}})]}]),[{key:"x",型:"number|null"}]);
+ assert.equal(filterSchemaInventory(audit.inventory,{section:"features",fieldPath:"x",observedType:"string"}).length,1);
+ const issues=filterSchemaIssues(audit.issues,{severity:"error",type:"feature-dictionary-type-conflict",section:"features",raceId:"r,1",search:"features.x"});assert.equal(paginate(issues,1,25).total,1);
+ for(const csv of [schemaConformanceCsv(audit.sectionConformance),schemaInventoryCsv(audit.inventory),schemaStabilityCsv(audit.stability),schemaIssuesCsv(issues)])assert.equal(csv.charCodeAt(0),0xFEFF);
+ assert.match(schemaIssuesCsv(issues),/"r,1"/);
 });
