@@ -1,7 +1,6 @@
-
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildQualityDetails,buildResearchDashboard,filterProblematicHorses,problematicHorsesCsv,sortProblematicHorses} from "./research-dashboard.js";
+import {buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -107,3 +106,66 @@ test("CSV escapes commas, quotes, and newlines",()=>{
   assert.match(csv,/"quoted ""issue"""/);
 });
 
+test("sorts race trends chronologically and places undated races last",()=>{
+  const trends=buildRaceTrends([
+    {raceId:"late",meta:{date:"2026-02-01"},horses:[]},
+    {raceId:"missing",meta:{},horses:[]},
+    {raceId:"early",meta:{date:"2026-01-01"},horses:[]}
+  ]);
+  assert.deepEqual(trends.map(row=>row.raceId),["early","late","missing"]);
+  assert.equal(trends.at(-1).dateLabel,"日付不明");
+});
+
+test("groups months and uses horse-weighted averages",()=>{
+  const trends=buildRaceTrends([
+    {raceId:"one",meta:{date:"2026-01-01"},horses:[horse({quality:{qualityScore:100},ocr:{confidence:1}})]},
+    {raceId:"three",meta:{date:"2026-01-02"},horses:Array.from({length:3},()=>horse({quality:{qualityScore:0},ocr:{confidence:0}}))},
+    {raceId:"undated",horses:[horse({quality:{qualityScore:50},ocr:{confidence:.5}})]}
+  ]);
+  const monthly=buildMonthlyTrends(trends);
+  assert.equal(monthly[0].month,"2026-01");
+  assert.equal(monthly[0].averageQualityScore,25);
+  assert.equal(monthly[0].averageOcrConfidence,.25);
+  assert.equal(monthly.at(-1).month,"undated");
+});
+
+test("period comparison includes both date boundaries and calculates differences",()=>{
+  const trends=buildRaceTrends([
+    {raceId:"a",meta:{date:"2026-01-01"},horses:[horse({quality:{qualityScore:50}})]},
+    {raceId:"b",meta:{date:"2026-01-31"},horses:[horse({quality:{qualityScore:100}})]},
+    {raceId:"c",meta:{date:"2025-01-01"},horses:[horse({quality:{qualityScore:50}})]}
+  ]);
+  const result=comparePeriods(trends,{currentStart:"2026-01-01",currentEnd:"2026-01-31",comparisonStart:"2025-01-01",comparisonEnd:"2025-01-01"});
+  assert.equal(result.valid,true);
+  assert.equal(result.current.raceCount,2);
+  assert.equal(result.current.averageQualityScore,75);
+  assert.equal(result.differences.averageQualityScore.absolute,25);
+  assert.equal(result.differences.averageQualityScore.percentageChange,50);
+});
+
+test("detects missing and reversed periods",()=>{
+  assert.equal(comparePeriods([],{}).valid,false);
+  assert.equal(comparePeriods([],{currentStart:"2026-02-01",currentEnd:"2026-01-01",comparisonStart:"2025-01-01",comparisonEnd:"2025-01-31"}).valid,false);
+});
+
+test("marks percentage change not calculable for zero or missing baselines",()=>{
+  const trends=buildRaceTrends([{raceId:"current",meta:{date:"2026-01-01"},horses:[horse({quality:{qualityScore:80}})]}]);
+  const result=comparePeriods(trends,{currentStart:"2026-01-01",currentEnd:"2026-01-01",comparisonStart:"2025-01-01",comparisonEnd:"2025-01-31"});
+  assert.equal(result.differences.raceCount.absolute,1);
+  assert.equal(result.differences.raceCount.percentageChange,null);
+  assert.equal(result.differences.averageQualityScore.absolute,null);
+});
+
+test("trend quality and OCR use canonical Horse roots only",()=>{
+  const trends=buildRaceTrends([{raceId:"r",meta:{date:"2026-01-01"},quality:{qualityScore:1},ocr:{confidence:.1},horses:[horse({quality:{qualityScore:90},ocr:{confidence:.9}})]}]);
+  assert.equal(trends[0].averageQualityScore,90);
+  assert.equal(trends[0].averageOcrConfidence,.9);
+});
+
+test("trend CSV exports escape labels and comparison data",()=>{
+  const trends=buildRaceTrends([{raceId:"r",meta:{date:"2026-01-01",raceName:'A, "Race"'},horses:[]}]);
+  assert.match(raceTrendsCsv(trends),/"A, ""Race"""/);
+  assert.match(monthlyTrendsCsv(buildMonthlyTrends(trends)),/2026-01/);
+  const comparison=comparePeriods(trends,{currentStart:"2026-01-01",currentEnd:"2026-01-01",comparisonStart:"2026-01-01",comparisonEnd:"2026-01-01"});
+  assert.match(periodComparisonCsv(comparison),/absoluteDifference/);
+});
