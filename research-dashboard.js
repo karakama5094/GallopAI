@@ -1,6 +1,4 @@
-Exit code: 0
-Wall time: 1.5 seconds
-Output:
+
 export const RESEARCH_RACE_TARGET=50;
 
 const numeric=value=>value!==null&&value!==""&&Number.isFinite(Number(value));
