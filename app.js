@@ -5,11 +5,11 @@ import {buildResearchPackage,featureDictionary,FEATURE_SCHEMA_VERSION,FEATURE_EN
 import {loadLocalRaces,saveLocalRace,deleteLocalRace,loadWorkspace,saveWorkspace,clearWorkspace,loadSettings,saveSettings,importLocalBackup} from "./local-storage.js";
 import {initCloud,cloudIsConfigured,signInGoogle,signOutCloud,currentCloudUser,saveCloudRace,saveGlobalResearchAnalysis,listCloudRaces,getCloudRace,deleteCloudRace,loadResearchDataset,parseConfigText,saveRuntimeConfig,clearRuntimeConfig,getEffectiveConfig,CLOUD_DATA_MODEL_VERSION} from "./cloud.js";
 import {buildResearchAnalysis,formatPercent} from "./analysis-engine.js";
-import {buildResearchDashboard,buildQualityDetails,filterProblematicHorses,problematicHorsesCsv,RESEARCH_RACE_TARGET} from "./research-dashboard.js";
+import {buildResearchDashboard,buildQualityDetails,buildRaceTrends,buildMonthlyTrends,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,RESEARCH_RACE_TARGET} from "./research-dashboard.js";
 
 const WAKU={1:"#f7f5f0",2:"#343434",3:"#d93b2b",4:"#1e5fc4",5:"#f2c230",6:"#2f8f3e",7:"#f0821e",8:"#f0a8c4"};
 const labels={targetText:"TARGET出馬表TXT",training:"競馬ブック調教PDF",entryCsv:"TARGET出馬表CSV（任意）",resultCsv:"TARGET結果CSV（レース後）"};
-const state={view:"import",sources:{targetText:null,training:null,entryCsv:null,resultCsv:null},merged:null,selected:null,sort:"number",error:"",busy:"",toast:"",settings:loadSettings(COURSE_TABLE),cloud:{configured:cloudIsConfigured(),status:"loading",user:null,error:""},cloudRaces:[],researchRaces:[],researchAnalysis:null,researchV34:null,researchFilters:{},researchQualityFilters:{issuesOnly:true},researchStatus:"idle",researchError:"",library:"cloud",search:""};
+const state={view:"import",sources:{targetText:null,training:null,entryCsv:null,resultCsv:null},merged:null,selected:null,sort:"number",error:"",busy:"",toast:"",settings:loadSettings(COURSE_TABLE),cloud:{configured:cloudIsConfigured(),status:"loading",user:null,error:""},cloudRaces:[],researchRaces:[],researchAnalysis:null,researchV34:null,researchFilters:{},researchQualityFilters:{issuesOnly:true},researchPeriods:{},researchPeriodTouched:false,researchStatus:"idle",researchError:"",library:"cloud",search:""};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=(v,d=1)=>v==null||Number.isNaN(v)?"-":Number(v).toFixed(d);
 const sourceRequired={targetText:true,training:true,entryCsv:false,resultCsv:false};
@@ -108,48 +108,27 @@ function settingsView(){
   <section class="settings-card"><h3>調教コース設定</h3><div class="settings-head"><span>コース</span><span>補正</span><span>軸</span><span>消</span></div>${Object.entries(state.settings).map(([k,v])=>`<div class="setting-row"><b>${esc(k)}</b><input type="number" step=".1" data-setting="${esc(k)}" data-field="correction" value="${v.correction}"><input type="number" step=".1" data-setting="${esc(k)}" data-field="axisBorder" value="${v.axisBorder}"><input type="number" step=".1" data-setting="${esc(k)}" data-field="keshiBorder" value="${v.keshiBorder}"></div>`).join("")}<button data-action="reset-settings" class="ghost">初期値に戻す</button></section>`;
 }
 
-function researchView(){const races=state.researchRaces?.length?state.researchRaces:Object.values(loadLocalRaces()),a=state.researchV34||buildResearchAnalysis(races,state.researchFilters||{}),q=a.quality||{},stats=(a.basicStatistics||[]).slice(0,25),corr=(a.correlations||[]).slice(0,25),quant=(a.quantiles||[]).filter(x=>x.quantile===5).slice(0,15),val=(x,d=3)=>x==null?"-":Number(x).toFixed(d),pct=x=>x==null?"-":`${Number(x).toFixed(1)}%`;return `<div class="page-title"><span>RESEARCH LAB 3.4</span><h2>競馬AI研究所・分析基盤</h2><p>50レースまでは統計分析のみ。結果データは目的変数と検証に限定します。</p></div><div class="lab-kpis"><div><b>${a.raceCount}</b><span>蓄積レース</span></div><div><b>${a.horseCount}</b><span>蓄積馬</span></div><div><b>${a.resultCount}</b><span>結果登録馬</span></div><div><b>${a.featureCount}</b><span>数値特徴量<…1495 tokens truncated…ers?.[key]===v?"selected":""}>${esc(v)}</option>`).join("")}</select></label>`}
-function researchDashboardView(){
-  const title='<div class="page-title"><span>RESEARCH DASHBOARD PHASE 2</span><h2>研究ダッシュボード</h2><p>Horse ルートの canonical schema から品質とOCRを分析します。</p></div>';
-  if(state.researchStatus==="loading")return`${title}<div class="busy" role="status"><span class="spinner"></span>研究データを読み込んでいます…</div>`;
-  if(state.researchStatus==="error")return`${title}<div class="error-box" role="alert"><b>研究データを読み込めませんでした。</b><br>${esc(state.researchError)}</div><button data-action="refresh-research-dashboard">再試行</button>`;
-  const races=state.researchRaces?.length?state.researchRaces:Object.values(loadLocalRaces());
-  if(!races.length)return`${title}<div class="empty"><h3>研究データがありません</h3><p>レースを保存すると、ここに集計結果が表示されます。</p>${state.cloud.user?'<button data-action="refresh-research-dashboard">再読み込み</button>':""}</div>`;
-  const d=buildResearchDashboard(races),details=buildQualityDetails(races),filtered=filterProblematicHorses(details.rows,state.researchQualityFilters),value=(x,digits=1)=>x==null?"-":Number(x).toFixed(digits);
-  const distribution=items=>`<div class="distribution-grid">${items.map(item=>`<div><b>${esc(item.label)}</b><span>${item.count}頭（${item.percentage.toFixed(1)}%）</span><i style="width:${item.percentage}%"></i></div>`).join("")}</div>`;
-  const q=details.issueTotals,f=state.researchQualityFilters;
-  return`${title}<div class="lab-kpis">
-    <div><b>${d.raceCount}</b><span>総レース数</span></div>
-    <div><b>${d.horseCount}</b><span>総馬数</span></div>
-    <div><b>${d.resultRegisteredHorseCount}</b><span>結果登録馬数</span></div>
-    <div><b>${d.numericFeatureCount}</b><span>数値特徴量数</span></div>
-    <div><b>${value(d.averageQualityScore)}</b><span>平均 qualityScore</span></div>
-    <div><b>${d.averageOcrConfidence==null?"-":Math.round(d.averageOcrConfidence*100)+"%"}</b><span>平均 OCR confidence</span></div>
-    <div><b>${d.totalMissingCount}</b><span>missingCount 合計</span></div>
-    <div><b>${d.warningAndErrorCount}</b><span>警告・エラー数</span></div>
-    <div><b>${d.progressTo50}%</b><span>50レース進捗</span></div>
-    <div><b>${esc(d.dataModelVersion)}</b><span>dataModelVersion</span></div>
-    <div><b>${esc(d.featureVersion)}</b><span>featureVersion</span></div>
-    <div><b>${d.lastRecalculationTime?new Date(d.lastRecalculationTime).toLocaleString("ja-JP"):"-"}</b><span>最終再計算時刻</span></div>
-  </div><div class="research-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${RESEARCH_RACE_TARGET}" aria-valuenow="${d.raceCount}"><span style="width:${d.progressTo50}%"></span></div>
-  <div class="notice"><b>${d.raceCount}/${RESEARCH_RACE_TARGET} レース</b><br>${d.showAiTrainingControls?"AI 学習の実装は Phase 1 の対象外です。":`残り ${RESEARCH_RACE_TARGET-d.raceCount} レース。AI 学習コントロールは非表示です。`}</div>
-  <div class="actions"><button data-action="refresh-research-dashboard" ${!state.cloud.user?"disabled":""}>クラウドから再読み込み</button></div>
-  <section class="settings-card"><h3>qualityScore 分布</h3>${distribution(details.qualityDistribution)}</section>
-  <section class="settings-card"><h3>OCR confidence 分布</h3>${distribution(details.ocrDistribution)}</section>
-  <section class="settings-card"><h3>品質Issueサマリー</h3><div class="count-grid">
-    <div><b>${q.missingCount}</b><span>missingCount</span></div><div><b>${q.warningCount}</b><span>warningCount</span></div>
-    <div><b>${q.errorCount}</b><span>errorCount</span></div><div><b>${q.typeErrorCount}</b><span>typeErrorCount</span></div>
-    <div><b>${q.abnormalCount}</b><span>abnormalCount</span></div><div><b>${q.duplicateFlagCount}</b><span>duplicateFlag</span></div>
-  </div></section>
-  <section class="settings-card"><h3>問題馬フィルター</h3><div class="quality-filters">
-    <label>validationStatus<select id="qualityStatus"><option value="">すべて</option>${["PASS","WARNING","ERROR","UNREGISTERED"].map(status=>`<option value="${status}" ${f.validationStatus===status?"selected":""}>${status}</option>`).join("")}</select></label>
-    <label>最小 qualityScore<input id="qualityMin" type="number" min="0" max="100" value="${esc(f.minQualityScore??"")}"></label>
-    <label>最大 qualityScore<input id="qualityMax" type="number" min="0" max="100" value="${esc(f.maxQualityScore??"")}"></label>
-    <label>最大 OCR confidence<input id="ocrMax" type="number" min="0" max="1" step=".01" value="${esc(f.maxOcrConfidence??"")}"></label>
-    <label class="check"><input id="issuesOnly" type="checkbox" ${f.issuesOnly?"checked":""}> Issuesのみ</label>
-  </div><div class="actions"><button data-action="apply-quality-filters">適用</button><button data-action="clear-quality-filters">クリア</button><button data-action="quality-csv" ${filtered.length?"":"disabled"}>表示中CSV</button></div></section>
+function researchView(){const races=state.researchRaces?.length?state.researchRaces:Object.values(loadLocalRaces()),a=state.researchV34||buildResearchAnalysis(races,state.researchFilters||{}),q=a.quality||{},stats=(a.basicStatistics||[]).slice(0,25),corr=(a.correlations||[]).slice(0,25),quant=(a.quantiles||[]).filter(x=>x.quantile===5).slice(0,15),val=(x,d=3)=>x==null?"-":Number(x).toFixed(d),pct=x=>x==null?"-":`${Number(x).toFixed(1)}%`;return `<div class="page-title"><span>RESEARCH LAB 3.4</span><h2>競馬AI研究所・分析基盤</h2><p>50レースまでは統計分析のみ。結果データは目的変数と検証に限定します。</p></div><div class="lab-kpis"><div><b>${a.raceCount}</b><span>蓄積レース</span></div><div><b>${a.horseCou…3128 tokens truncated…><button data-action="quality-csv" ${filtered.length?"":"disabled"}>表示中CSV</button></div></section>
   <section class="settings-card"><h3>問題馬一覧（${filtered.length}頭）</h3>
     ${filtered.length?`<div class="quality-table"><table><thead><tr><th>日付</th><th>レース</th><th>馬番</th><th>馬名</th><th>品質</th><th>OCR</th><th>Status</th><th>欠損</th><th>警告</th><th>Error</th><th>Issue</th></tr></thead><tbody>${filtered.map(row=>`<tr><td>${esc(row.raceDate||"-")}</td><td>${esc(row.raceName||row.raceId)}</td><td>${esc(row.horseNumber)}</td><td>${esc(row.horseName||"-")}</td><td>${row.qualityScore??"-"}</td><td>${row.ocrConfidence==null?"-":Math.round(row.ocrConfidence*100)+"%"}</td><td>${esc(row.validationStatus)}</td><td>${row.missingCount}</td><td>${row.warningCount}</td><td>${row.errorCount}</td><td>${esc(row.issueMessages.join(" / ")||"-")}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty"><h3>条件に一致する問題馬がありません</h3><p>フィルター条件を変更してください。</p></div>'}
+  </section>
+  <section class="settings-card"><h3>レース別トレンド</h3>
+    ${trends.some(row=>!row.raceDate)?'<div class="notice">日付がないレースは「日付不明」として時系列の末尾に表示します。</div>':""}
+    ${chart("qualityScore レース推移",[{label:"平均 qualityScore",value:row=>row.averageQualityScore}],100)}
+    ${chart("OCR confidence レース推移",[{label:"平均 OCR confidence",value:row=>row.averageOcrConfidence==null?null:row.averageOcrConfidence*100}],100)}
+    ${chart("Issue レース推移",[{label:"missing",value:row=>row.missingCount},{label:"warning",value:row=>row.warningCount},{label:"error",value:row=>row.errorCount}],issueMax)}
+    <div class="actions"><button data-action="race-trends-csv">レース別CSV</button></div>
+    <div class="quality-table"><table><thead><tr><th>日付</th><th>レース</th><th>馬数</th><th>平均品質</th><th>平均OCR</th><th>欠損</th><th>警告</th><th>Error</th></tr></thead><tbody>${trends.map(row=>`<tr><td>${esc(row.dateLabel)}</td><td>${esc(row.raceName)}</td><td>${row.horseCount}</td><td>${value(row.averageQualityScore)}</td><td>${row.averageOcrConfidence==null?"-":Math.round(row.averageOcrConfidence*100)+"%"}</td><td>${row.missingCount}</td><td>${row.warningCount}</td><td>${row.errorCount}</td></tr>`).join("")}</tbody></table></div>
+  </section>
+  <section class="settings-card"><h3>月別サマリー</h3><p class="hint">平均は、各レース平均の単純平均ではなく、有効値を持つ全馬を母数にした馬単位の加重平均です。</p>
+    <div class="actions"><button data-action="monthly-trends-csv">月別CSV</button></div>
+    <div class="quality-table"><table><thead><tr><th>月</th><th>レース</th><th>馬数</th><th>平均品質</th><th>平均OCR</th><th>欠損</th><th>警告</th><th>Error</th></tr></thead><tbody>${monthly.map(row=>`<tr><td>${esc(row.monthLabel)}</td><td>${row.raceCount}</td><td>${row.horseCount}</td><td>${value(row.averageQualityScore)}</td><td>${row.averageOcrConfidence==null?"-":Math.round(row.averageOcrConfidence*100)+"%"}</td><td>${row.missingCount}</td><td>${row.warningCount}</td><td>${row.errorCount}</td></tr>`).join("")}</tbody></table></div>
+  </section>
+  <section class="settings-card"><h3>2期間比較</h3><div class="period-filters">
+    <label>現在期間 開始<input id="currentStart" type="date" value="${esc(p.currentStart||"")}"></label><label>現在期間 終了<input id="currentEnd" type="date" value="${esc(p.currentEnd||"")}"></label>
+    <label>比較期間 開始<input id="comparisonStart" type="date" value="${esc(p.comparisonStart||"")}"></label><label>比較期間 終了<input id="comparisonEnd" type="date" value="${esc(p.comparisonEnd||"")}"></label>
+  </div><div class="actions"><button data-action="apply-periods">比較</button><button data-action="clear-periods">クリア</button><button data-action="period-comparison-csv" ${comparison.valid?"":"disabled"}>比較CSV</button></div>
+    ${!state.researchPeriodTouched?'<div class="empty"><p>比較する2つの期間を入力してください。</p></div>':!comparison.valid?`<div class="error-box" role="alert">${esc(comparison.reason)}</div>`:`<div class="quality-table"><table><thead><tr><th>指標</th><th>現在期間</th><th>比較期間</th><th>差分</th><th>変化率</th></tr></thead><tbody>${[["raceCount","レース数"],["horseCount","馬数"],["averageQualityScore","平均品質"],["averageOcrConfidence","平均OCR"],["missingCount","欠損"],["warningCount","警告"],["errorCount","Error"]].map(([key,label])=>{const diff=comparison.differences[key],percent=diff.percentageChange==null?"計算不可":`${value(diff.percentageChange)}%`;return`<tr><td>${label}</td><td>${value(comparison.current[key])}</td><td>${value(comparison.comparison[key])}</td><td>${value(diff.absolute)}</td><td>${percent}</td></tr>`}).join("")}</tbody></table></div>`}
   </section>
   ${d.showAiTrainingControls?'<section class="settings-card ai-training-controls"><h3>AI 学習</h3><p class="muted">Phase 1 では学習機能を実装していません。</p></section>':""}`;
 }
@@ -233,6 +212,17 @@ function bind(){
         const races=state.researchRaces?.length?state.researchRaces:Object.values(loadLocalRaces());
         const rows=filterProblematicHorses(buildQualityDetails(races).rows,state.researchQualityFilters);
         download(problematicHorsesCsv(rows),"GallopAI_problematic_horses.csv","text/csv;charset=utf-8");
+      }
+      if(a==="apply-periods"){
+        state.researchPeriods={currentStart:document.getElementById("currentStart")?.value||"",currentEnd:document.getElementById("currentEnd")?.value||"",comparisonStart:document.getElementById("comparisonStart")?.value||"",comparisonEnd:document.getElementById("comparisonEnd")?.value||""};
+        state.researchPeriodTouched=true;render();
+      }
+      if(a==="clear-periods"){state.researchPeriods={};state.researchPeriodTouched=false;render();}
+      if(["race-trends-csv","monthly-trends-csv","period-comparison-csv"].includes(a)){
+        const races=state.researchRaces?.length?state.researchRaces:Object.values(loadLocalRaces()),trends=buildRaceTrends(races);
+        if(a==="race-trends-csv")download(raceTrendsCsv(trends),"GallopAI_race_trends.csv","text/csv;charset=utf-8");
+        if(a==="monthly-trends-csv")download(monthlyTrendsCsv(buildMonthlyTrends(trends)),"GallopAI_monthly_trends.csv","text/csv;charset=utf-8");
+        if(a==="period-comparison-csv")download(periodComparisonCsv(comparePeriods(trends,state.researchPeriods)),"GallopAI_period_comparison.csv","text/csv;charset=utf-8");
       }
       if(a==="analysis-json"){const analysis=state.researchAnalysis||buildResearchAnalysis(state.researchRaces||[]);download(JSON.stringify(analysis,null,2),`GallopAI_v3.3.4_research_statistics.json`,"application/json");}
       if(a==="refresh-v34"){state.busy="クラウド全件を再集計中";render();try{state.researchRaces=await loadResearchDataset();state.researchV34=buildResearchAnalysis(state.researchRaces,state.researchFilters||{});await saveResearchAnalysis(state.researchV34);toast(`再集計完了：${state.researchV34.raceCount}レース／${state.researchV34.horseCount}頭`)}catch(e){toast(`再集計エラー: ${e.message}`)}state.busy="";render()}if(a==="apply-research-filters"){const f={};document.querySelectorAll("[data-filter]").forEach(el=>{if(el.value)f[el.dataset.filter]=el.value});state.researchFilters=f;state.researchV34=buildResearchAnalysis(state.researchRaces?.length?state.researchRaces:Object.values(loadLocalRaces()),f);render()}if(a==="clear-research-filters"){state.researchFilters={};state.researchV34=buildResearchAnalysis(state.researchRaces?.length?state.researchRaces:Object.values(loadLocalRaces()),{});render()}if(a==="stats-json"){const x=state.researchV34||buildResearchAnalysis(state.researchRaces||[],state.researchFilters||{});download(JSON.stringify(x,null,2),"GallopAI_v3.4_analysis.json","application/json")}if(a==="stats-csv"){const x=state.researchV34||buildResearchAnalysis(state.researchRaces||[],state.researchFilters||{}),rows=x.basicStatistics||[],h=["featureId","name","group","count","missingCount","missingRate","mean","median","min","max","variance","standardDeviation","q1","q3","outlierCount","fillRate","availablePreRace"];download([h.join(","),...rows.map(r=>h.map(k=>csvEscape(r[k])).join(","))].join("\n"),"GallopAI_v3.4_basic_statistics.csv","text/csv;charset=utf-8")}if(a==="feature-csv"){const rows=featureDictionary(),q=v=>`"${String(v??"").replace(/"/g,'""')}"`;download("\uFEFF"+[["FeatureID","key","名称","説明","単位","型","計算式","利用AI","group","availablePreRace","sourceFields","missingPolicy","leakageRisk"],...rows.map(x=>[x.FeatureID,x.key,x.名称,x.説明,x.単位,x.型,x.計算式,(x.利用AI||[]).join("|"),x.group,x.availablePreRace,(x.sourceFields||[]).join("|"),x.missingPolicy,x.leakageRisk])].map(r=>r.map(q).join(",")).join("\r\n"),"GallopAI_v3.3.4_feature_dictionary.csv","text/csv;charset=utf-8");}
