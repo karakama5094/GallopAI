@@ -1,4 +1,3 @@
-
 import {decodeJapaneseFile,parseTargetEntryCsv,parseTargetEntryText,parseTargetResultCsv,parseTrainingText,COURSE_TABLE} from "./parsers.js";
 import {mergeSources,acceleration} from "./engine.js";
 import {buildResearchPackage,featureDictionary,FEATURE_SCHEMA_VERSION,FEATURE_ENGINE_VERSION,MIN_RACES_FOR_ML} from "./feature-store.js";
@@ -39,7 +38,6 @@ async function importFile(slot,file){
     rebuild();persist();
   }catch(e){state.error=`${labels[slot]}: ${e.message}`;}
   state.busy="";render();
-
 }
 async function loadSample(){state.busy="有馬記念サンプルを読込中";render();try{state.merged=attachResearch(await fetch("./sample/arima-2025.json").then(r=>r.json()));state.view="research";state.error="";}catch(e){state.error=e.message;}state.busy="";render();}
 
@@ -80,7 +78,6 @@ function detailView(){
   const h=state.merged?.horses.find(x=>x.number===state.selected);if(!h)return`<div class="empty">対象馬がありません。</div>`;
   const b=h.basic||{},a=h.ability||{},r=h.result||{},t=h.training||{},f=h.features||{},q=h.quality||{},o=h.ocr||{},l=h.logs||{};
   return `<button data-view="integrated" class="back">← 統合画面</button><div class="detail-title">${waku(h)}<div><h2>${esc(h.name)}</h2><p>${esc(b.sex)}${b.age??""} ${esc(b.jockey)} ${b.weight??"-"}kg</p></div></div>
-
   <section class="detail-card"><h3>特徴量エンジン v3.3.4</h3><dl><dt>特徴量数</dt><dd>${Object.keys(f).length}</dd><dt>品質スコア</dt><dd>${q.qualityScore??"-"} / 100（${esc(q.validationStatus||"-")}）</dd><dt>OCR/解析信頼度</dt><dd>${o.confidence!=null?Math.round(o.confidence*100)+"%":"-"}</dd><dt>方式</dt><dd>${esc(o.method||"-")}</dd><dt>計算時間</dt><dd>${l.calculationTimeMs??"-"} ms</dd><dt>Feature Version</dt><dd>${esc(l.featureVersion||FEATURE_SCHEMA_VERSION)}</dd></dl></section>
   <section class="detail-card"><h3>主要ルール特徴量</h3><dl><dt>能力代理指数</dt><dd>${fmt(f.speed_index_proxy,2)}</dd><dt>調教スコア</dt><dd>${fmt(f.training_score_rule,1)}</dd><dt>機動力</dt><dd>${fmt(f.agility_proxy,1)}</dd><dt>末脚力</dt><dd>${fmt(f.finish_power_proxy,1)}</dd><dt>持続力</dt><dd>${fmt(f.stamina_proxy,1)}</dd><dt>調整過程</dt><dd>${fmt(f.rotation_score,1)}</dd><dt>事前特徴量充足率</dt><dd>${f.pre_race_feature_completeness!=null?Math.round(f.pre_race_feature_completeness*100)+"%":"-"}</dd></dl><p class="hint">代理スコアは学習モデルではなく、再現可能なルール計算です。</p></section>
   <section class="detail-card"><h3>能力・基本情報</h3><dl><dt>ZI</dt><dd>${a.zi??"-"}</dd><dt>父</dt><dd>${esc(a.sire||"-")}</dd><dt>母父</dt><dd>${esc(a.broodmareSire||"-")}</dd><dt>厩舎</dt><dd>${esc(b.affiliation||"")} ${esc(b.trainer||"")}</dd><dt>馬体重</dt><dd>${b.bodyWeight??r.bodyWeight??"-"}kg</dd></dl></section>
@@ -121,7 +118,6 @@ function researchDashboardView(){
   const d=buildResearchDashboard(races),details=buildQualityDetails(races),filtered=filterProblematicHorses(details.rows,state.researchQualityFilters),trends=buildRaceTrends(races),monthly=buildMonthlyTrends(trends),comparison=comparePeriods(trends,state.researchPeriods),value=(x,digits=1)=>x==null?"-":Number(x).toFixed(digits);
   const distribution=items=>`<div class="distribution-grid">${items.map(item=>`<div><b>${esc(item.label)}</b><span>${item.count}頭（${item.percentage.toFixed(1)}%）</span><i style="width:${item.percentage}%"></i></div>`).join("")}</div>`;
   const chart=(label,series,maxValue=100)=>{
-
     const width=720,height=180,pad=18,count=Math.max(1,trends.length-1),colors=["#cfa43b","#5c8a57","#d6492f"],lines=series.map((item,index)=>{
       const points=trends.map((row,i)=>{const raw=item.value(row);if(raw==null)return null;const x=pad+(width-pad*2)*i/count,y=height-pad-(height-pad*2)*Math.max(0,Math.min(maxValue,raw))/maxValue;return`${x},${y}`}).filter(Boolean).join(" ");
       return`<polyline points="${points}" fill="none" stroke="${colors[index%colors.length]}" stroke-width="3"><title>${esc(item.label)}</title></polyline>`;
@@ -162,7 +158,6 @@ function researchDashboardView(){
   <section class="settings-card"><h3>問題馬一覧（${filtered.length}頭）</h3>
     ${filtered.length?`<div class="quality-table"><table><thead><tr><th>日付</th><th>レース</th><th>馬番</th><th>馬名</th><th>品質</th><th>OCR</th><th>Status</th><th>欠損</th><th>警告</th><th>Error</th><th>Issue</th></tr></thead><tbody>${filtered.map(row=>`<tr><td>${esc(row.raceDate||"-")}</td><td>${esc(row.raceName||row.raceId)}</td><td>${esc(row.horseNumber)}</td><td>${esc(row.horseName||"-")}</td><td>${row.qualityScore??"-"}</td><td>${row.ocrConfidence==null?"-":Math.round(row.ocrConfidence*100)+"%"}</td><td>${esc(row.validationStatus)}</td><td>${row.missingCount}</td><td>${row.warningCount}</td><td>${row.errorCount}</td><td>${esc(row.issueMessages.join(" / ")||"-")}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty"><h3>条件に一致する問題馬がありません</h3><p>フィルター条件を変更してください。</p></div>'}
   </section>
-
   <section class="settings-card"><h3>レース別トレンド</h3>
     ${trends.some(row=>!row.raceDate)?'<div class="notice">日付がないレースは「日付不明」として時系列の末尾に表示します。</div>':""}
     ${chart("qualityScore レース推移",[{label:"平均 qualityScore",value:row=>row.averageQualityScore}],100)}
@@ -203,7 +198,6 @@ async function refreshResearchDashboard(saveGlobal=false){
  state.busy="";render();
 }
 async function refreshResearch(saveGlobal=false){
-
  if(!currentCloudUser()){state.researchRaces=[];state.researchStatus="ready";state.researchError="";render();return;}
  state.researchStatus="loading";state.researchError="";render();
  try{
@@ -244,7 +238,6 @@ function bind(){
       if(a==="sample")await loadSample();
       if(a==="clear"&&confirm("現在の読込データを消去しますか？")){state.sources={targetText:null,training:null,entryCsv:null,resultCsv:null};state.merged=null;clearWorkspace();render();}
       if(a==="integrated"){state.view="integrated";render();}
-
       if(a==="local-save"&&state.merged){state.merged=attachResearch(state.merged,state.merged.researchPackage);const existed=!!loadLocalRaces()[state.merged.raceId];saveLocalRace(state.merged);toast(existed?"端末の既存レースを更新しました":"端末へ保存しました");}
       if(a==="cloud-save")await cloudSave();
       if(a==="csv-current"&&state.merged)exportCsv(state.merged);
@@ -285,7 +278,6 @@ function bind(){
       if(a==="signout")await signOutCloud();
       if(a==="refresh-cloud"){state.busy="クラウド一覧を更新中";render();await refreshCloud();state.busy="";render();}
       if(a==="backup-library"){const races=state.library==="cloud"?Object.fromEntries(state.cloudRaces.map(r=>[r.raceId,r])):loadLocalRaces();download(JSON.stringify({version:"3.3.4",exportedAt:new Date().toISOString(),races},null,2),`GallopAI_${state.library}_backup.json`,"application/json");}
-
       if(a==="sync-local"){const races=Object.values(loadLocalRaces());for(const r of races){const full=attachResearch(r,r.researchPackage);await saveCloudRace(full,buildResearchAnalysis([full]));}await refreshCloud();await refreshResearch(true);toast(`${races.length}件をクラウドへ同期しました`);}
       if(a==="save-config"){const cfg=parseConfigText(document.getElementById("firebaseConfig").value);saveRuntimeConfig(cfg);location.reload();}
       if(a==="clear-config"){clearRuntimeConfig();location.reload();}
