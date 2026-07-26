@@ -16,7 +16,6 @@ function lastRecalculation(horse){
   return [
     horse.logs?.updatedAt,
     horse.logs?.calculatedAt,
-    horse.logs?.calculationTime,
     ...history.map(item=>item?.at)
   ].map(timestamp).filter(Boolean).sort().at(-1)||null;
 }
