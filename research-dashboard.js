@@ -254,14 +254,14 @@ const canonicalVersions=row=>({
   dataModelVersion:versionValue(row.versions?.dataModelVersion??row.versions?.horse),
   featureVersion:versionValue(row.versions?.featureVersion??row.versions?.features)
 });
-function parseAuditTimestamp(value){
+export function parseAuditTimestamp(value){
   if(value==null||value==="")return{kind:"missing",iso:null};
   try{
     const date=typeof value?.toDate==="function"?value.toDate():value instanceof Date?value:new Date(value);
     return Number.isNaN(date.getTime())?{kind:"invalid",iso:null}:{kind:"valid",iso:date.toISOString()};
   }catch{return{kind:"invalid",iso:null};}
 }
-function canonicalRecalculation(row){
+export function canonicalRecalculation(row){
   const history=Array.isArray(row.logs?.recalculateHistory)?row.logs.recalculateHistory:[];
   const candidates=[row.logs?.updatedAt,row.logs?.calculatedAt,...history.map(item=>item?.at)];
   const parsed=candidates.map(parseAuditTimestamp),valid=parsed.filter(x=>x.kind==="valid").map(x=>x.iso).sort();
@@ -334,6 +334,68 @@ export function versionDistributionCsv(rows=[]){return rowsCsv(["version","count
 export function versionMatrixCsv(rows=[]){return rowsCsv(["dataModelVersion","featureVersion","count","percentage"],rows.map(r=>[r.dataModelVersion,r.featureVersion,r.count,r.percentage]));}
 export function recalculationAuditCsv(audit){return rowsCsv(["month","count","percentage","oldestValid","newestValid"],audit.recalculationGroups.map(r=>[r.month,r.count,r.percentage,audit.oldestRecalculationTime,audit.newestRecalculationTime]));}
 export function versionAuditIssuesCsv(rows=[]){return rowsCsv(["severity","type","raceDate","raceName","raceId","horseNumber","horseName","dataModelVersion","featureVersion","lastRecalculationTime","message"],rows.map(r=>[r.severity,r.type,r.date||"日付不明",r.raceName,r.raceId,r.number,r.horseName,r.dataModelVersion,r.featureVersion,r.recalculationTime,r.message]));}
+
+export const FRESHNESS_CATEGORIES=["within-24-hours","1-7-days","8-30-days","over-30-days","future","missing","invalid"];
+const hasData=value=>value!=null&&(typeof value!=="object"?String(value)!=="":Array.isArray(value)?value.length>0:Object.keys(value).length>0);
+export function requiredSourcesFromDictionary(dictionary=[]){
+  return [...new Set(dictionary.flatMap(item=>Array.isArray(item?.sourceFields)?item.sourceFields:[]).filter(Boolean).map(String))].sort();
+}
+function freshness(recalculation,nowMs){
+  if(recalculation.kind==="missing")return"missing";if(recalculation.kind==="invalid")return"invalid";
+  const age=nowMs-new Date(recalculation.iso).getTime(),day=86400000;
+  if(age<0)return"future";if(age<=day)return"within-24-hours";if(age<=7*day)return"1-7-days";if(age<=30*day)return"8-30-days";return"over-30-days";
+}
+export function buildProvenanceFreshnessAudit(model,dictionary=[],now=new Date()){
+  const calculationTime=parseAuditTimestamp(now);if(calculationTime.kind!=="valid")throw new Error("Audit calculation time must be valid.");
+  const calculationTimeMs=new Date(calculationTime.iso).getTime(),requiredSources=requiredSourcesFromDictionary(dictionary),sourceKeys=new Set();
+  for(const row of model.horses)if(row.sectionPresence.raw&&row.raw&&typeof row.raw==="object")for(const key of Object.keys(row.raw))sourceKeys.add(key);
+  const rows=model.horses.map((row,index)=>{
+    const rawPresent=row.sectionPresence.raw&&row.raw&&typeof row.raw==="object",presentSources=rawPresent?Object.keys(row.raw).filter(key=>hasData(row.raw[key])).sort():[];
+    const emptySources=rawPresent?Object.keys(row.raw).filter(key=>!hasData(row.raw[key])).sort():[],missingRequiredSources=requiredSources.filter(key=>!presentSources.includes(key));
+    const recalculation=canonicalRecalculation(row),freshnessCategory=freshness(recalculation,calculationTimeMs),sourceCoveragePercentage=sourceKeys.size?percentage(presentSources.filter(key=>sourceKeys.has(key)).length,sourceKeys.size):0;
+    return{...row,originalIndex:index,raceName:row.race?.meta?.raceName||row.race?.raceName||row.raceId,horseName:row.name,rawPresent,presentSources,emptySources,missingRequiredSources,
+      sourceCoveragePercentage,freshnessCategory,recalculationTime:recalculation.iso,recalculationKind:recalculation.kind};
+  });
+  const sourceCoverage=[...sourceKeys].map(sourceKey=>{const values=rows.filter(row=>row.rawPresent&&Object.prototype.hasOwnProperty.call(row.raw,sourceKey));const availableDataCount=values.filter(row=>hasData(row.raw[sourceKey])).length;return{sourceKey,horseCount:values.length,coveragePercentage:percentage(values.length,rows.length),emptyObjectCount:values.length-availableDataCount,availableDataCount};})
+    .sort((a,b)=>b.coveragePercentage-a.coveragePercentage||a.sourceKey.localeCompare(b.sourceKey));
+  const missingRawCount=rows.filter(row=>!row.rawPresent).length;
+  sourceCoverage.push({sourceKey:"(raw missing)",horseCount:missingRawCount,coveragePercentage:percentage(missingRawCount,rows.length),emptyObjectCount:0,availableDataCount:0});
+  const freshnessSummary=FRESHNESS_CATEGORIES.map(category=>{const count=rows.filter(row=>row.freshnessCategory===category).length;return{category,count,percentage:percentage(count,rows.length)};});
+  const issues=[];const add=(row,severity,type,message,sourceKey="")=>issues.push({...row,severity,type,message,sourceKey});
+  for(const row of rows){
+    if(!row.rawPresent)add(row,"error","missing-raw-section","rawセクションがありません");
+    else if(!Object.keys(row.raw).length)add(row,"warning","empty-raw-section","rawセクションが空です");
+    for(const sourceKey of row.emptySources)add(row,"warning","empty-source-object",`${sourceKey}が空です`,sourceKey);
+    for(const sourceKey of row.missingRequiredSources)add(row,"error","missing-required-source",`必須ソース${sourceKey}がありません`,sourceKey);
+    if(row.freshnessCategory==="over-30-days")add(row,"warning","stale-recalculation","最終再計算から30日を超えています");
+    if(row.freshnessCategory==="future")add(row,"warning","future-recalculation-timestamp","最終再計算時刻が監査時刻より未来です");
+    if(row.freshnessCategory==="missing")add(row,"warning","missing-recalculation-timestamp","最終再計算時刻が未登録です");
+    if(row.freshnessCategory==="invalid")add(row,"error","invalid-recalculation-timestamp","最終再計算時刻が不正です");
+  }
+  const raceRows=model.races.map(race=>{
+    const horses=rows.slice(race.horseStart,race.horseStart+race.horseCount);
+    return{raceId:race.raceId,raceDate:race.date,raceName:race.race?.meta?.raceName||race.race?.raceName||race.raceId,horseCount:horses.length,
+      averageSourceCoverage:average(horses.map(row=>row.sourceCoveragePercentage)),missingRawCount:horses.filter(row=>!row.rawPresent).length,
+      missingRequiredCount:horses.filter(row=>row.missingRequiredSources.length).length,freshCount:horses.filter(row=>["within-24-hours","1-7-days"].includes(row.freshnessCategory)).length,
+      staleCount:horses.filter(row=>row.freshnessCategory==="over-30-days").length,futureCount:horses.filter(row=>row.freshnessCategory==="future").length,
+      missingTimestampCount:horses.filter(row=>row.freshnessCategory==="missing").length,invalidTimestampCount:horses.filter(row=>row.freshnessCategory==="invalid").length};
+  }).sort((a,b)=>a.raceDate&&b.raceDate?a.raceDate.localeCompare(b.raceDate)||a.raceId.localeCompare(b.raceId):a.raceDate?-1:b.raceDate?1:a.raceId.localeCompare(b.raceId));
+  const completeRequiredCount=requiredSources.length?rows.filter(row=>!row.missingRequiredSources.length).length:0;
+  return{calculationTime:calculationTime.iso,requiredSources,requiredSourcesConfigured:requiredSources.length>0,completeRequiredCount,
+    incompleteRequiredCount:requiredSources.length?rows.length-completeRequiredCount:0,requiredSourceCoveragePercentage:requiredSources.length?percentage(completeRequiredCount,rows.length):null,
+    sourceCoverage,freshnessSummary,raceRows,rows,issues:sortProvenanceIssues(issues)};
+}
+export function sortProvenanceIssues(rows=[]){const rank={error:0,warning:1};return stableSort(rows,(a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)||(a.date&&b.date?a.date.localeCompare(b.date):a.date?-1:b.date?1:0)||a.raceId.localeCompare(b.raceId)||String(a.number??"").localeCompare(String(b.number??""),undefined,{numeric:true})||a.type.localeCompare(b.type));}
+export function filterProvenanceIssues(rows=[],f={}){
+  const search=String(f.search||"").toLowerCase();
+  return sortProvenanceIssues(rows.filter(row=>(!f.severity||row.severity===f.severity)&&(!f.type||row.type===f.type)&&(!f.sourceKey||row.sourceKey===f.sourceKey||row.presentSources.includes(f.sourceKey))&&
+    (!f.freshnessCategory||row.freshnessCategory===f.freshnessCategory)&&(!f.raceId||row.raceId===f.raceId)&&(!numeric(f.minimumSourceCoverage)||row.sourceCoveragePercentage>=Number(f.minimumSourceCoverage))&&
+    (!search||`${row.raceName} ${row.horseName} ${row.sourceKey} ${row.message}`.toLowerCase().includes(search))));
+}
+export function sourceCoverageCsv(rows=[]){return rowsCsv(["sourceKey","horseCount","coveragePercentage","emptyObjectCount","availableDataCount"],rows.map(r=>[r.sourceKey,r.horseCount,r.coveragePercentage,r.emptyObjectCount,r.availableDataCount]));}
+export function freshnessSummaryCsv(rows=[]){return rowsCsv(["category","count","percentage"],rows.map(r=>[r.category,r.count,r.percentage]));}
+export function provenanceRaceCsv(rows=[]){return rowsCsv(["raceDate","raceName","raceId","horseCount","averageSourceCoverage","missingRawCount","missingRequiredCount","freshCount","staleCount","futureCount","missingTimestampCount","invalidTimestampCount"],rows.map(r=>[r.raceDate||"日付不明",r.raceName,r.raceId,r.horseCount,r.averageSourceCoverage,r.missingRawCount,r.missingRequiredCount,r.freshCount,r.staleCount,r.futureCount,r.missingTimestampCount,r.invalidTimestampCount]));}
+export function provenanceIssuesCsv(rows=[]){return rowsCsv(["severity","type","raceDate","raceName","raceId","horseNumber","horseName","presentSources","missingRequiredSources","freshnessCategory","lastRecalculationTime","message"],rows.map(r=>[r.severity,r.type,r.date||"日付不明",r.raceName,r.raceId,r.number,r.horseName,r.presentSources.join(" | "),r.missingRequiredSources.join(" | "),r.freshnessCategory,r.recalculationTime,r.message]));}
 
 export function buildResearchDashboard(races=[]){
   const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
