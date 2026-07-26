@@ -117,6 +117,99 @@ export function problematicHorsesCsv(rows=[]){
   return"\uFEFF"+[headers.join(","),...lines].join("\r\n");
 }
 
+const validDate=value=>{
+  if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
+  const date=new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==value?null:value;
+};
+const weightedAverage=(sum,count)=>count?sum/count:null;
+
+function raceTrendRow(race,index){
+  const horses=race.horses||[],quality=horses.map(horse=>horse.quality?.qualityScore).filter(numeric).map(Number),ocr=horses.map(horse=>horse.ocr?.confidence).filter(numeric).map(Number);
+  const date=validDate(race.meta?.date||race.date||"");
+  return{
+    raceId:race.raceId||`race-${index}`,
+    raceDate:date,
+    dateLabel:date||"日付不明",
+    raceName:race.meta?.raceName||race.raceName||race.raceId||`Race ${index+1}`,
+    horseCount:horses.length,
+    averageQualityScore:average(quality),
+    averageOcrConfidence:average(ocr),
+    missingCount:horses.reduce((sum,horse)=>sum+number(horse.quality?.missingCount),0),
+    warningCount:horses.reduce((sum,horse)=>sum+number(horse.quality?.warningCount??horse.quality?.warning?.length),0),
+    errorCount:horses.reduce((sum,horse)=>sum+number(horse.quality?.errorCount),0),
+    qualityValueCount:quality.length,
+    qualityValueSum:quality.reduce((sum,value)=>sum+value,0),
+    ocrValueCount:ocr.length,
+    ocrValueSum:ocr.reduce((sum,value)=>sum+value,0)
+  };
+}
+
+export function buildRaceTrends(races=[]){
+  return races.map(raceTrendRow).sort((a,b)=>{
+    if(a.raceDate&&b.raceDate)return a.raceDate.localeCompare(b.raceDate)||a.raceId.localeCompare(b.raceId);
+    if(a.raceDate)return-1;
+    if(b.raceDate)return 1;
+    return a.raceId.localeCompare(b.raceId);
+  });
+}
+
+export function buildMonthlyTrends(raceTrends=[]){
+  const groups=new Map();
+  for(const race of raceTrends){
+    const month=race.raceDate?race.raceDate.slice(0,7):"undated";
+    const group=groups.get(month)||{month,monthLabel:month==="undated"?"日付不明":month,raceCount:0,horseCount:0,qualityValueSum:0,qualityValueCount:0,ocrValueSum:0,ocrValueCount:0,missingCount:0,warningCount:0,errorCount:0};
+    group.raceCount++;group.horseCount+=race.horseCount;group.qualityValueSum+=race.qualityValueSum;group.qualityValueCount+=race.qualityValueCount;group.ocrValueSum+=race.ocrValueSum;group.ocrValueCount+=race.ocrValueCount;group.missingCount+=race.missingCount;group.warningCount+=race.warningCount;group.errorCount+=race.errorCount;
+    groups.set(month,group);
+  }
+  return [...groups.values()].sort((a,b)=>a.month==="undated"?1:b.month==="undated"?-1:a.month.localeCompare(b.month)).map(group=>({...group,averageQualityScore:weightedAverage(group.qualityValueSum,group.qualityValueCount),averageOcrConfidence:weightedAverage(group.ocrValueSum,group.ocrValueCount)}));
+}
+
+function periodMetrics(races,start,end){
+  const selected=races.filter(race=>race.raceDate&&race.raceDate>=start&&race.raceDate<=end);
+  const qualityValueSum=selected.reduce((sum,race)=>sum+race.qualityValueSum,0),qualityValueCount=selected.reduce((sum,race)=>sum+race.qualityValueCount,0),ocrValueSum=selected.reduce((sum,race)=>sum+race.ocrValueSum,0),ocrValueCount=selected.reduce((sum,race)=>sum+race.ocrValueCount,0);
+  return{
+    raceCount:selected.length,
+    horseCount:selected.reduce((sum,race)=>sum+race.horseCount,0),
+    averageQualityScore:weightedAverage(qualityValueSum,qualityValueCount),
+    averageOcrConfidence:weightedAverage(ocrValueSum,ocrValueCount),
+    missingCount:selected.reduce((sum,race)=>sum+race.missingCount,0),
+    warningCount:selected.reduce((sum,race)=>sum+race.warningCount,0),
+    errorCount:selected.reduce((sum,race)=>sum+race.errorCount,0)
+  };
+}
+
+export function comparePeriods(raceTrends=[],periods={}){
+  const currentStart=validDate(periods.currentStart),currentEnd=validDate(periods.currentEnd),comparisonStart=validDate(periods.comparisonStart),comparisonEnd=validDate(periods.comparisonEnd);
+  if(!currentStart||!currentEnd||!comparisonStart||!comparisonEnd)return{valid:false,reason:"4つの期間日付を入力してください。"};
+  if(currentStart>currentEnd||comparisonStart>comparisonEnd)return{valid:false,reason:"開始日は終了日以前にしてください。"};
+  const current=periodMetrics(raceTrends,currentStart,currentEnd),comparison=periodMetrics(raceTrends,comparisonStart,comparisonEnd);
+  const keys=["raceCount","horseCount","averageQualityScore","averageOcrConfidence","missingCount","warningCount","errorCount"];
+  const differences=Object.fromEntries(keys.map(key=>{
+    const a=current[key],b=comparison[key],absolute=a==null||b==null?null:a-b,percentageChange=absolute==null||b===0?null:absolute/b*100;
+    return[key,{absolute,percentageChange}];
+  }));
+  return{valid:true,current,comparison,differences,periods:{currentStart,currentEnd,comparisonStart,comparisonEnd}};
+}
+
+function rowsCsv(headers,rows){
+  return"\uFEFF"+[headers,...rows].map(row=>row.map(csvCell).join(",")).join("\r\n");
+}
+
+export function raceTrendsCsv(rows=[]){
+  return rowsCsv(["raceDate","raceName","raceId","horseCount","averageQualityScore","averageOcrConfidence","missingCount","warningCount","errorCount"],rows.map(row=>[row.dateLabel,row.raceName,row.raceId,row.horseCount,row.averageQualityScore,row.averageOcrConfidence,row.missingCount,row.warningCount,row.errorCount]));
+}
+
+export function monthlyTrendsCsv(rows=[]){
+  return rowsCsv(["month","raceCount","horseCount","averageQualityScore","averageOcrConfidence","missingCount","warningCount","errorCount"],rows.map(row=>[row.monthLabel,row.raceCount,row.horseCount,row.averageQualityScore,row.averageOcrConfidence,row.missingCount,row.warningCount,row.errorCount]));
+}
+
+export function periodComparisonCsv(comparison){
+  if(!comparison?.valid)return rowsCsv(["status","reason"],[["invalid",comparison?.reason||"not calculable"]]);
+  const labels={raceCount:"raceCount",horseCount:"horseCount",averageQualityScore:"averageQualityScore",averageOcrConfidence:"averageOcrConfidence",missingCount:"missingCount",warningCount:"warningCount",errorCount:"errorCount"};
+  return rowsCsv(["metric","current","comparison","absoluteDifference","percentageChange"],Object.keys(labels).map(key=>[labels[key],comparison.current[key],comparison.comparison[key],comparison.differences[key].absolute,comparison.differences[key].percentageChange]));
+}
+
 export function buildResearchDashboard(races=[]){
   const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
   const qualityScores=horses.map(({horse})=>horse.quality?.qualityScore).filter(numeric).map(Number);
