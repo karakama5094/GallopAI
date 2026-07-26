@@ -1,6 +1,4 @@
-Exit code: 0
-Wall time: 1.1 seconds
-Output:
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import {buildResearchDashboard} from "./research-dashboard.js";
