@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
+import {buildCanonicalResearchModel,buildConsistencyDiagnostics,createRenderGeneration,diagnosticsCsv,filterDiagnostics,paginate,stableSort,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -188,4 +188,24 @@ test("monthly stability ordering, undated, changes and warnings",()=>{
 test("feature audit uses canonical roots and escapes CSV",()=>{
  const rows=buildFeatureCoverage([{features:{x:999},horses:[horse({features:{x:1}})]}],[{key:"x",名称:'X, "name"'}]);
  assert.equal(rows[0].mean,1);assert.match(featureCoverageCsv(rows),/"X, ""name"""/);
+});
+
+test("shared canonical model and diagnostics cover all consistency rules",()=>{
+ const complete=horse(),bad={number:1,raw:{},features:{},quality:{qualityScore:101},ocr:{confidence:2},logs:{},versions:{horse:"v2",features:"f2",quality:"q2",ocr:"o2",logs:"l2"}};
+ const model=buildCanonicalResearchModel([{raceId:"dup",meta:{date:"bad"},horses:[complete,{...bad,number:1},{...bad,number:1}]},{raceId:"dup",meta:{date:"2026-01-01"},horses:[horse({versions:{horse:"v3"}})]}]);
+ assert.equal(model.horses.length,4);const types=buildConsistencyDiagnostics(model).map(x=>x.type);
+ for(const t of ["duplicate-race-id","duplicate-horse-number","invalid-race-date","invalid-quality-score","invalid-ocr-confidence","version-inconsistency"])assert.ok(types.includes(t));
+ const missing=buildConsistencyDiagnostics(buildCanonicalResearchModel([{raceId:"x",meta:{date:"2026-01-01"},horses:[{number:1}]}])).map(x=>x.type);
+ for(const s of ["raw","features","quality","ocr","logs","versions"])assert.ok(missing.includes(`missing-section-${s}`));
+});
+test("stable sorting, pagination, filtering and CSV use all rows",()=>{
+ const rows=[{id:"a",v:1},{id:"b",v:1},{id:"c",v:0}];assert.deepEqual(stableSort(rows,(a,b)=>a.v-b.v).map(x=>x.id),["c","a","b"]);
+ assert.deepEqual(paginate(Array.from({length:101},(_,i)=>i),3,50),{rows:[100],page:3,pageSize:50,total:101,totalPages:3,start:101,end:101});
+ const d=[{severity:"error",type:"x",raceId:"R,1",horseNumber:1,message:'bad "x"'},{severity:"warning",type:"y",raceId:"R2",horseNumber:2,message:"ok"}];
+ assert.equal(filterDiagnostics(d,{severity:"error",raceId:"r,1"}).length,1);assert.match(diagnosticsCsv(d),/"R,1"/);
+});
+test("progressive render generations cancel stale work",()=>{const g=createRenderGeneration(),a=g.next(),b=g.next();assert.equal(g.isCurrent(a),false);assert.equal(g.isCurrent(b),true);g.cancel();assert.equal(g.isCurrent(b),false);});
+test("1000 races and 20000 Horses build within 2 seconds",()=>{
+ const h=horse(),races=Array.from({length:1000},(_,i)=>({raceId:`r${i}`,meta:{date:"2026-01-01"},horses:Array.from({length:20},(_,n)=>({...h,number:n+1}))}));
+ const start=performance.now(),model=buildCanonicalResearchModel(races),elapsed=performance.now()-start;assert.equal(model.horses.length,20000);assert.ok(elapsed<2000,`elapsed ${elapsed}ms`);
 });
