@@ -248,6 +248,93 @@ export function filterDiagnostics(rows=[],f={}){const q=String(f.raceId||"").toL
 export function diagnosticsCsv(rows=[]){return rowsCsv(["severity","type","raceId","horseNumber","message"],rows.map(r=>[r.severity,r.type,r.raceId,r.horseNumber,r.message]));}
 export function createRenderGeneration(){let generation=0;return{next:()=>++generation,isCurrent:value=>value===generation,cancel:()=>++generation};}
 
+export const UNREGISTERED_VERSION="未登録",INVALID_RECALCULATION_MONTH="invalid",MISSING_RECALCULATION_MONTH="missing";
+const versionValue=value=>value==null||String(value).trim()===""?UNREGISTERED_VERSION:String(value);
+const canonicalVersions=row=>({
+  dataModelVersion:versionValue(row.versions?.dataModelVersion??row.versions?.horse),
+  featureVersion:versionValue(row.versions?.featureVersion??row.versions?.features)
+});
+function parseAuditTimestamp(value){
+  if(value==null||value==="")return{kind:"missing",iso:null};
+  try{
+    const date=typeof value?.toDate==="function"?value.toDate():value instanceof Date?value:new Date(value);
+    return Number.isNaN(date.getTime())?{kind:"invalid",iso:null}:{kind:"valid",iso:date.toISOString()};
+  }catch{return{kind:"invalid",iso:null};}
+}
+function canonicalRecalculation(row){
+  const history=Array.isArray(row.logs?.recalculateHistory)?row.logs.recalculateHistory:[];
+  const candidates=[row.logs?.updatedAt,row.logs?.calculatedAt,...history.map(item=>item?.at)];
+  const parsed=candidates.map(parseAuditTimestamp),valid=parsed.filter(x=>x.kind==="valid").map(x=>x.iso).sort();
+  if(valid.length)return{kind:"valid",iso:valid.at(-1),month:valid.at(-1).slice(0,7)};
+  if(parsed.some(x=>x.kind==="invalid"))return{kind:"invalid",iso:null,month:INVALID_RECALCULATION_MONTH};
+  return{kind:"missing",iso:null,month:MISSING_RECALCULATION_MONTH};
+}
+function mode(values){
+  const counts=new Map();for(const value of values)counts.set(value,(counts.get(value)||0)+1);
+  return [...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]?.[0]??null;
+}
+function versionDistribution(values){
+  const total=values.length,counts=new Map();for(const value of values)counts.set(value,(counts.get(value)||0)+1);
+  const mostCommon=mode(values);
+  return [...counts].map(([version,count])=>({version,count,percentage:percentage(count,total),mostCommon:version===mostCommon}))
+    .sort((a,b)=>b.count-a.count||a.version.localeCompare(b.version));
+}
+export function buildVersionRecalculationAudit(model){
+  const rows=model.horses.map((row,index)=>{
+    const versions=canonicalVersions(row),recalculation=canonicalRecalculation(row);
+    return{...row,...versions,recalculationKind:recalculation.kind,recalculationTime:recalculation.iso,recalculationMonth:recalculation.month,originalIndex:index,
+      raceName:row.race?.meta?.raceName||row.race?.raceName||row.raceId,horseName:row.name};
+  });
+  const dataModelDistribution=versionDistribution(rows.map(row=>row.dataModelVersion));
+  const featureDistribution=versionDistribution(rows.map(row=>row.featureVersion));
+  const commonCombination=mode(rows.map(row=>`${row.dataModelVersion}\u0000${row.featureVersion}`));
+  const issues=[];
+  const add=(row,severity,type,message)=>issues.push({...row,severity,type,message});
+  for(const race of model.races){
+    const raceRows=rows.slice(race.horseStart,race.horseStart+race.horseCount);
+    const dataModels=new Set(raceRows.map(row=>row.dataModelVersion).filter(x=>x!==UNREGISTERED_VERSION));
+    const features=new Set(raceRows.map(row=>row.featureVersion).filter(x=>x!==UNREGISTERED_VERSION));
+    const times=new Set(raceRows.map(row=>row.recalculationTime).filter(Boolean));
+    if(dataModels.size>1)for(const row of raceRows)add(row,"error","mixed-data-model-version","同一レース内でdataModelVersionが複数あります");
+    if(features.size>1)for(const row of raceRows)add(row,"error","mixed-feature-version","同一レース内でfeatureVersionが複数あります");
+    if(times.size>1)for(const row of raceRows)add(row,"warning","mixed-recalculation-time","同一レース内で最終再計算時刻が混在しています");
+  }
+  for(const row of rows){
+    if(row.dataModelVersion===UNREGISTERED_VERSION)add(row,"error","missing-data-model-version","dataModelVersionが未登録です");
+    if(row.featureVersion===UNREGISTERED_VERSION)add(row,"error","missing-feature-version","featureVersionが未登録です");
+    if(commonCombination&&`${row.dataModelVersion}\u0000${row.featureVersion}`!==commonCombination)add(row,"warning","uncommon-version-combination","データセットの最多バージョン組合せと異なります");
+    if(row.recalculationKind==="missing")add(row,"warning","missing-recalculation-time","最終再計算時刻が未登録です");
+    if(row.recalculationKind==="invalid")add(row,"error","invalid-recalculation-time","最終再計算時刻が不正です");
+    if(row.date&&row.recalculationTime&&row.recalculationTime<`${row.date}T00:00:00.000Z`)add(row,"warning","recalculation-before-race","最終再計算時刻がレース日より前です");
+  }
+  const recalculationGroups=versionDistribution(rows.map(row=>row.recalculationMonth)).map(item=>({...item,month:item.version}));
+  const validTimes=rows.map(row=>row.recalculationTime).filter(Boolean).sort();
+  const combinations=new Map();for(const row of rows){const key=`${row.dataModelVersion}\u0000${row.featureVersion}`;combinations.set(key,(combinations.get(key)||0)+1);}
+  const matrix=[...combinations].map(([key,count])=>{const [dataModelVersion,featureVersion]=key.split("\u0000");return{dataModelVersion,featureVersion,count,percentage:percentage(count,rows.length)};});
+  return{rows,dataModelDistribution,featureDistribution,commonCombination:commonCombination?.split("\u0000")||null,recalculationGroups,
+    oldestRecalculationTime:validTimes[0]||null,newestRecalculationTime:validTimes.at(-1)||null,
+    matrix,issues:sortVersionAuditIssues(issues)};
+}
+export function sortVersionAuditIssues(rows=[]){
+  const rank={error:0,warning:1,info:2};
+  return stableSort(rows,(a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)||
+    (a.date&&b.date?a.date.localeCompare(b.date):a.date?-1:b.date?1:0)||a.raceId.localeCompare(b.raceId)||
+    String(a.number??"").localeCompare(String(b.number??""),undefined,{numeric:true}));
+}
+export function filterVersionAuditIssues(rows=[],f={}){
+  const search=String(f.search||"").toLowerCase();
+  return sortVersionAuditIssues(rows.filter(row=>
+    (!f.severity||row.severity===f.severity)&&(!f.type||row.type===f.type)&&
+    (!f.dataModelVersion||row.dataModelVersion===f.dataModelVersion)&&(!f.featureVersion||row.featureVersion===f.featureVersion)&&
+    (!f.recalculationMonth||row.recalculationMonth===f.recalculationMonth)&&(!f.raceId||row.raceId===f.raceId)&&
+    (!search||`${row.raceName} ${row.horseName} ${row.message}`.toLowerCase().includes(search))
+  ));
+}
+export function versionDistributionCsv(rows=[]){return rowsCsv(["version","count","percentage","mostCommon"],rows.map(r=>[r.version,r.count,r.percentage,r.mostCommon]));}
+export function versionMatrixCsv(rows=[]){return rowsCsv(["dataModelVersion","featureVersion","count","percentage"],rows.map(r=>[r.dataModelVersion,r.featureVersion,r.count,r.percentage]));}
+export function recalculationAuditCsv(audit){return rowsCsv(["month","count","percentage","oldestValid","newestValid"],audit.recalculationGroups.map(r=>[r.month,r.count,r.percentage,audit.oldestRecalculationTime,audit.newestRecalculationTime]));}
+export function versionAuditIssuesCsv(rows=[]){return rowsCsv(["severity","type","raceDate","raceName","raceId","horseNumber","horseName","dataModelVersion","featureVersion","lastRecalculationTime","message"],rows.map(r=>[r.severity,r.type,r.date||"日付不明",r.raceName,r.raceId,r.number,r.horseName,r.dataModelVersion,r.featureVersion,r.recalculationTime,r.message]));}
+
 export function buildResearchDashboard(races=[]){
   const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
   const qualityScores=horses.map(({horse})=>horse.quality?.qualityScore).filter(numeric).map(Number);

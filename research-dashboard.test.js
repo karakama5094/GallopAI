@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildCanonicalResearchModel,buildConsistencyDiagnostics,createRenderGeneration,diagnosticsCsv,filterDiagnostics,paginate,stableSort,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
+import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildVersionRecalculationAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterVersionAuditIssues,paginate,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -208,4 +208,35 @@ test("progressive render generations cancel stale work",()=>{const g=createRende
 test("1000 races and 20000 Horses build within 2 seconds",()=>{
  const h=horse(),races=Array.from({length:1000},(_,i)=>({raceId:`r${i}`,meta:{date:"2026-01-01"},horses:Array.from({length:20},(_,n)=>({...h,number:n+1}))}));
  const start=performance.now(),model=buildCanonicalResearchModel(races),elapsed=performance.now()-start;assert.equal(model.horses.length,20000);assert.ok(elapsed<2000,`elapsed ${elapsed}ms`);
+});
+
+test("version audit distributions, missing values, tie rule and matrix are deterministic",()=>{
+ const model=buildCanonicalResearchModel([{raceId:"r",meta:{date:"2026-01-01"},horses:[
+  horse({versions:{horse:"v2",features:"f2"}}),horse({versions:{horse:"v1",features:"f1"}}),horse({versions:{}})
+ ]}]),audit=buildVersionRecalculationAudit(model);
+ assert.equal(audit.dataModelDistribution.find(x=>x.version==="未登録").count,1);
+ assert.equal(audit.dataModelDistribution.find(x=>x.mostCommon).version,"v1");
+ assert.equal(audit.matrix.reduce((sum,x)=>sum+x.count,0),3);
+ assert.ok(audit.issues.some(x=>x.type==="mixed-data-model-version"));
+});
+test("recalculation audit separates valid, missing and invalid timestamps",()=>{
+ const audit=buildVersionRecalculationAudit(buildCanonicalResearchModel([{raceId:"r",meta:{date:"2026-02-01"},horses:[
+  horse({logs:{updatedAt:"2026-01-01T00:00:00Z"}}),horse({logs:{updatedAt:"bad"}}),horse({logs:{}})
+ ]}]));
+ assert.deepEqual(audit.recalculationGroups.map(x=>x.month).sort(),["2026-01","invalid","missing"]);
+ assert.ok(audit.issues.some(x=>x.type==="recalculation-before-race"));
+ assert.ok(audit.issues.some(x=>x.type==="invalid-recalculation-time"));
+});
+test("version audit uses canonical Horse roots only and filters combined fields",()=>{
+ const model=buildCanonicalResearchModel([{raceId:"r",versions:{horse:"fallback"},logs:{updatedAt:"2026-01-01"},horses:[horse({name:"Alpha",versions:{},logs:{}})]}]);
+ const audit=buildVersionRecalculationAudit(model);
+ assert.equal(audit.dataModelDistribution[0].version,"未登録");
+ assert.equal(filterVersionAuditIssues(audit.issues,{severity:"error",type:"missing-data-model-version",raceId:"r",search:"alpha"}).length,1);
+});
+test("version audit sorting is stable and exports full escaped collections",()=>{
+ const audit=buildVersionRecalculationAudit(buildCanonicalResearchModel([{raceId:"r,1",meta:{raceName:'A, "Race"'},horses:[horse({number:2,versions:{}}),horse({number:2,versions:{}})]}]));
+ const filtered=filterVersionAuditIssues(audit.issues,{type:"missing-data-model-version"});
+ assert.equal(filtered.length,2);assert.equal(paginate(filtered,1,25).rows.length,2);
+ assert.match(versionAuditIssuesCsv(filtered),/"r,1"/);assert.match(versionDistributionCsv(audit.dataModelDistribution),/mostCommon/);
+ assert.match(versionMatrixCsv(audit.matrix),/dataModelVersion/);assert.match(recalculationAuditCsv(audit),/oldestValid/);
 });
