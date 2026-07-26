@@ -1,4 +1,3 @@
-
 import test from "node:test";
 import assert from "node:assert/strict";
 import {buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
@@ -170,4 +169,3 @@ test("trend CSV exports escape labels and comparison data",()=>{
   const comparison=comparePeriods(trends,{currentStart:"2026-01-01",currentEnd:"2026-01-01",comparisonStart:"2026-01-01",comparisonEnd:"2026-01-01"});
   assert.match(periodComparisonCsv(comparison),/absoluteDifference/);
 });
-
