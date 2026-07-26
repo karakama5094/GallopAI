@@ -209,6 +209,27 @@ export function periodComparisonCsv(comparison){
   return rowsCsv(["metric","current","comparison","absoluteDifference","percentageChange"],Object.keys(labels).map(key=>[labels[key],comparison.current[key],comparison.comparison[key],comparison.differences[key].absolute,comparison.differences[key].percentageChange]));
 }
 
+export const FEATURE_STABILITY_MIN_SAMPLE=3;
+const popSd=values=>{if(!values.length)return null;const m=average(values);return Math.sqrt(values.reduce((s,v)=>s+(v-m)**2,0)/values.length);};
+export const coverageClass=p=>p>=95?"excellent":p>=80?"good":p>=50?"warning":"critical";
+export function buildFeatureCoverage(races=[],dictionary=[]){
+ const horses=races.flatMap(r=>r.horses||[]),total=horses.length;
+ return dictionary.map(d=>{const vals=horses.map(h=>h.features?.[d.key]).filter(numeric).map(Number),coverage=percentage(vals.length,total);return{key:d.key,name:d.名称||d.name||d.key,group:d.group||"other",numericCount:vals.length,missingCount:total-vals.length,coveragePercentage:coverage,coverageClass:coverageClass(coverage),zeroValueCount:vals.filter(v=>v===0).length,min:vals.length?Math.min(...vals):null,max:vals.length?Math.max(...vals):null,mean:average(vals),standardDeviation:popSd(vals),availablePreRace:!!d.availablePreRace,leakageRisk:d.leakageRisk||""};});
+}
+export function filterFeatureCoverage(rows=[],f={}){const q=String(f.search||"").toLowerCase();return rows.filter(r=>(!f.group||r.group===f.group)&&(!f.coverageClass||r.coverageClass===f.coverageClass)&&(f.availablePreRace===""||f.availablePreRace==null||r.availablePreRace===(String(f.availablePreRace)==="true"))&&(!f.leakageRisk||r.leakageRisk===f.leakageRisk)&&(!numeric(f.minimumCoverage)||r.coveragePercentage>=Number(f.minimumCoverage))&&(!q||`${r.key} ${r.name}`.toLowerCase().includes(q)));};
+export function coverageClassSummary(rows=[]){return["excellent","good","warning","critical"].map(label=>{const count=rows.filter(r=>r.coverageClass===label).length;return{label,count,percentage:percentage(count,rows.length)};});}
+export function buildFeatureStability(races=[],key){
+ const months=new Map();for(const r of races){const date=validDate(r.meta?.date||r.date||""),month=date?date.slice(0,7):"undated",g=months.get(month)||{month,monthLabel:month==="undated"?"日付不明":month,totalCount:0,values:[]};for(const h of r.horses||[]){g.totalCount++;const v=h.features?.[key];if(numeric(v))g.values.push(Number(v));}months.set(month,g);}
+ const rows=[...months.values()].sort((a,b)=>a.month==="undated"?1:b.month==="undated"?-1:a.month.localeCompare(b.month)).map(g=>({month:g.month,monthLabel:g.monthLabel,totalCount:g.totalCount,numericCount:g.values.length,coveragePercentage:percentage(g.values.length,g.totalCount),mean:average(g.values),standardDeviation:popSd(g.values),min:g.values.length?Math.min(...g.values):null,max:g.values.length?Math.max(...g.values):null}));
+ return rows.map((r,i)=>{const p=rows[i-1],difference=!p||r.mean==null||p.mean==null?null:r.mean-p.mean,percentageChange=difference==null||p.mean===0?null:difference/p.mean*100;return{...r,meanDifference:difference,meanPercentageChange:percentageChange};});
+}
+export function featureStabilityWarnings(rows=[]){
+ const out=[];for(let i=0;i<rows.length;i++){const r=rows[i],p=rows[i-1];if(r.numericCount<FEATURE_STABILITY_MIN_SAMPLE)out.push({month:r.monthLabel,type:"insufficient-sample",message:`有効値${r.numericCount}件（最小${FEATURE_STABILITY_MIN_SAMPLE}件）`});if(r.numericCount&&r.standardDeviation===0)out.push({month:r.monthLabel,type:"zero-variance",message:"分散が0"});if(p){if(p.coveragePercentage-r.coveragePercentage>=20)out.push({month:r.monthLabel,type:"coverage-decrease",message:"coverageが20ポイント以上低下"});if(r.meanPercentageChange!=null&&Math.abs(r.meanPercentageChange)>=30)out.push({month:r.monthLabel,type:"mean-change",message:"平均が30%以上変化"});if(p.numericCount>0&&r.numericCount===0)out.push({month:r.monthLabel,type:"newly-missing",message:"新たに全件欠損"});if(p.numericCount===0&&r.numericCount>0)out.push({month:r.monthLabel,type:"newly-restored",message:"欠損状態から復旧"});}}return out;
+}
+export function featureCoverageCsv(rows=[]){return rowsCsv(["key","name","group","numericCount","missingCount","coveragePercentage","coverageClass","zeroValueCount","min","max","mean","standardDeviation","availablePreRace","leakageRisk"],rows.map(r=>[r.key,r.name,r.group,r.numericCount,r.missingCount,r.coveragePercentage,r.coverageClass,r.zeroValueCount,r.min,r.max,r.mean,r.standardDeviation,r.availablePreRace,r.leakageRisk]));}
+export function featureStabilityCsv(rows=[]){return rowsCsv(["month","numericCount","coveragePercentage","mean","standardDeviation","min","max","meanDifference","meanPercentageChange"],rows.map(r=>[r.monthLabel,r.numericCount,r.coveragePercentage,r.mean,r.standardDeviation,r.min,r.max,r.meanDifference,r.meanPercentageChange]));}
+export function featureWarningsCsv(rows=[]){return rowsCsv(["month","type","message"],rows.map(r=>[r.month,r.type,r.message]));}
+
 export function buildResearchDashboard(races=[]){
   const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
   const qualityScores=horses.map(({horse})=>horse.quality?.qualityScore).filter(numeric).map(Number);
