@@ -465,6 +465,125 @@ export function schemaInventoryCsv(rows=[]){return rowsCsv(["section","fieldPath
 export function schemaStabilityCsv(rows=[]){return rowsCsv(["section","fieldPath","raceDate","raceName","raceId","observedTypes","dominantType","dominantTypeCount","observationCount"],rows.map(r=>[r.section,r.fieldPath,r.raceDate||"日付不明",r.raceName,r.raceId,r.observedTypes.join(" | "),r.dominantType,r.dominantTypeCount,r.observationCount]));}
 export function schemaIssuesCsv(rows=[]){return rowsCsv(["severity","type","section","fieldPath","raceDate","raceName","raceId","horseNumber","horseName","observedType","expectedType","valuePreview","message"],rows.map(r=>[r.severity,r.type,r.section,r.fieldPath,r.raceDate||"日付不明",r.raceName,r.raceId,r.horseNumber,r.horseName,r.observedType,r.expectedType,r.valuePreview,r.message]));}
 
+export const MISSING_PATTERN_MAX_PATHS=20,MISSING_PATTERN_MAX_DISPLAY=50,CO_MISSINGNESS_MAX_FIELDS=6,MISSING_ISSUE_MESSAGE_MAX_LENGTH=160;
+const isPlainAuditObject=value=>value!==null&&typeof value==="object"&&!Array.isArray(value)&&typeof value?.toDate!=="function"&&!(value instanceof Date);
+export function missingnessClassification(value,present=true,sectionValid=true){
+  if(!sectionValid)return"invalid canonical section";
+  if(!present||value===undefined)return"absent";
+  if(value===null)return"null";
+  if(typeof value==="number"&&!Number.isFinite(value))return"non-finite number";
+  if(typeof value==="string"&&!value.trim())return"empty string";
+  if(Array.isArray(value)&&!value.length)return"empty array";
+  if(isPlainAuditObject(value)&&!Object.keys(value).length)return"empty object";
+  return"usable";
+}
+const boundedMissingMessage=(value,max=MISSING_ISSUE_MESSAGE_MAX_LENGTH)=>{
+  const text=String(value??"");return text.length>max?`${text.slice(0,max-1)}…`:text;
+};
+function missingPathStateKeys(row,keys){
+  const [section,...nested]=keys,root=row[section];
+  if(root===undefined)return{classification:"absent",present:false,value:undefined,sectionValid:true};
+  const sectionValid=isPlainAuditObject(root);
+  if(!sectionValid)return{classification:"invalid canonical section",present:true,value:root,sectionValid:false};
+  let value=root;
+  for(const key of nested){
+    if(!isPlainAuditObject(value)||!Object.prototype.hasOwnProperty.call(value,key))return{classification:"absent",present:false,value:undefined,sectionValid:true};
+    value=value[key];
+  }
+  return{classification:missingnessClassification(value,true,true),present:true,value,sectionValid:true};
+}
+function missingPathState(row,path){return missingPathStateKeys(row,String(path).split("."));}
+const usableState=state=>state.classification==="usable";
+const missingnessRaceName=row=>row.race?.meta?.raceName||row.race?.raceName||row.raceId;
+const missingIssue=(row,type,section,fieldPath,classification,message,severity="warning",extra={})=>({
+  severity,type,section,fieldPath,featureKey:extra.featureKey||"",featureGroup:extra.featureGroup||"",raceDate:row.date,raceName:missingnessRaceName(row),raceId:row.raceId,
+  horseNumber:row.number,horseName:row.name,classification,expectedSources:extra.expectedSources||[],missingExpectedSources:extra.missingExpectedSources||[],
+  message:boundedMissingMessage(message),originalIndex:row.originalIndex??`${row.raceIndex}:${row.horseIndex}`
+});
+function sortMissingIssues(rows=[]){
+  const rank={error:0,warning:1};
+  return stableSort(rows,(a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)||(a.raceDate&&b.raceDate?a.raceDate.localeCompare(b.raceDate):a.raceDate?-1:b.raceDate?1:0)||
+    String(a.raceId).localeCompare(String(b.raceId))||String(a.horseNumber??"").localeCompare(String(b.horseNumber??""),undefined,{numeric:true})||
+    String(a.fieldPath||a.featureKey).localeCompare(String(b.fieldPath||b.featureKey))||a.type.localeCompare(b.type));
+}
+function dependencySourcePath(source){
+  const path=String(source||"");if(CANONICAL_SECTIONS.some(section=>path===section||path.startsWith(`${section}.`)))return path;
+  return `raw.${path}`;
+}
+export function buildMissingnessAudit(model,schemaAudit,dictionary=[]){
+  const total=model.horses.length,paths=[...new Set([...CANONICAL_SECTIONS,...(schemaAudit?.inventory||[]).map(item=>item.fieldPath)])].sort(),issues=[],missingByHorse=Array.from({length:total},()=>[]),usableByPath=new Map(),pathKeys=new Map(paths.map(path=>[path,path.split(".")]));
+  const summaries=paths.map(fieldPath=>{
+    const section=fieldPath.split(".")[0],counts={"absent":0,"null":0,"empty string":0,"empty array":0,"empty object":0,"usable":0,"invalid canonical section":0,"non-finite number":0};
+    const usable=new Uint8Array(total),keys=pathKeys.get(fieldPath);
+    for(let index=0;index<total;index++){
+      const row=model.horses[index],state=missingPathStateKeys(row,keys);counts[state.classification]=(counts[state.classification]||0)+1;
+      if(usableState(state))usable[index]=1;else{missingByHorse[index].push(fieldPath);issues.push(missingIssue(row,"missing-or-unusable-field",section,fieldPath,state.classification,`${fieldPath}: ${state.classification}`));}
+    }
+    usableByPath.set(fieldPath,usable);
+    const presentCount=total-counts.absent,usableValueCount=counts.usable,missingCount=total-usableValueCount;
+    return{section,fieldPath,totalHorseCount:total,presentCount,missingCount,absentCount:counts.absent,nullCount:counts.null,emptyStringCount:counts["empty string"],emptyArrayCount:counts["empty array"],
+      emptyObjectCount:counts["empty object"],nonFiniteNumberCount:counts["non-finite number"],invalidSectionCount:counts["invalid canonical section"],usableValueCount,
+      missingnessPercentage:percentage(missingCount,total),usableValuePercentage:percentage(usableValueCount,total)};
+  });
+  const patternMap=new Map();
+  for(let index=0;index<total;index++){
+    const row=model.horses[index],missing=missingByHorse[index],key=missing.join("\u001f");
+    let pattern=patternMap.get(key);if(!pattern){pattern={key,horseCount:0,missingPathCount:missing.length,missingPaths:missing.slice(0,MISSING_PATTERN_MAX_PATHS),pathsTruncated:missing.length>MISSING_PATTERN_MAX_PATHS,races:new Set()};patternMap.set(key,pattern);}
+    pattern.horseCount++;pattern.races.add(row.raceId);
+  }
+  const allPatterns=[...patternMap.values()].sort((a,b)=>b.horseCount-a.horseCount||b.missingPathCount-a.missingPathCount||a.key.localeCompare(b.key));
+  const patterns=allPatterns.slice(0,MISSING_PATTERN_MAX_DISPLAY).map((item,index)=>({patternId:`P${String(index+1).padStart(3,"0")}`,horseCount:item.horseCount,percentage:percentage(item.horseCount,total),
+    missingPathCount:item.missingPathCount,missingPaths:item.missingPaths,missingPathPreview:item.missingPaths.join(" | "),pathsTruncated:item.pathsTruncated,affectedRaceCount:item.races.size,patternKey:item.key}));
+  const discovered=new Set(paths),dependencies=dictionary.map(item=>{
+    const featureKey=String(item.key||""),expectedSources=Array.isArray(item.sourceFields)?item.sourceFields.map(String).filter(Boolean):[],sourcePaths=expectedSources.map(dependencySourcePath);
+    let usableFeatureCount=0,allExpectedSourcesPresentCount=0,usableFeatureDespiteMissingExpectedSourceCount=0,missingFeatureDespiteAllExpectedSourcesPresentCount=0,featureAndSourceCompleteCount=0;
+    const metadataMissing=!expectedSources.length,undiscovered=sourcePaths.filter(path=>!discovered.has(path)&&!paths.some(item=>item.startsWith(`${path}.`)));
+    const featurePath=`features.${featureKey}`,featureUsableVector=usableByPath.get(featurePath)||new Uint8Array(total),sourceUsableVectors=sourcePaths.map(path=>usableByPath.get(path)||new Uint8Array(total));
+    for(let index=0;index<total;index++){
+      const row=model.horses[index],featureUsable=featureUsableVector[index]===1,allSources=sourcePaths.length>0&&sourceUsableVectors.every(vector=>vector[index]===1);
+      if(featureUsable)usableFeatureCount++;if(allSources)allExpectedSourcesPresentCount++;
+      if(featureUsable&&sourcePaths.length&&!allSources){usableFeatureDespiteMissingExpectedSourceCount++;const missing=sourcePaths.filter((_,i)=>sourceUsableVectors[i][index]!==1),featureState=missingPathStateKeys(row,featurePath.split("."));issues.push(missingIssue(row,"usable-feature-with-missing-source","features",featureKey,featureState.classification,`${featureKey} は使用可能ですが期待sourceが欠損しています`,"warning",{featureKey,featureGroup:item.group||"",expectedSources,missingExpectedSources:missing}));}
+      if(!featureUsable&&allSources){missingFeatureDespiteAllExpectedSourcesPresentCount++;const featureState=missingPathStateKeys(row,featurePath.split("."));issues.push(missingIssue(row,"missing-feature-with-complete-sources","features",featureKey,featureState.classification,`${featureKey} は全期待sourceが使用可能ですが欠損しています`,"warning",{featureKey,featureGroup:item.group||"",expectedSources}));}
+      if(featureUsable&&allSources)featureAndSourceCompleteCount++;
+    }
+    if(metadataMissing)issues.push({severity:"warning",type:"feature-dependency-not-configured",section:"features",fieldPath:featureKey,featureKey,featureGroup:item.group||"",raceDate:"",raceName:"",raceId:"",horseNumber:"",horseName:"",classification:"not configured",expectedSources:[],missingExpectedSources:[],message:boundedMissingMessage(`${featureKey}: sourceFields が設定されていません`),originalIndex:`metadata:${featureKey}`});
+    for(const path of undiscovered)issues.push({severity:"error",type:"undiscovered-expected-source",section:path.split(".")[0],fieldPath:path,featureKey,featureGroup:item.group||"",raceDate:"",raceName:"",raceId:"",horseNumber:"",horseName:"",classification:"absent",expectedSources,missingExpectedSources:[path],message:boundedMissingMessage(`${featureKey} の期待source ${path} はフィールド在庫にありません`),originalIndex:`metadata:${featureKey}:${path}`});
+    return{featureKey,displayName:item.名称||item.name||featureKey,featureGroup:item.group||"",expectedSources,dependencyConfigured:!metadataMissing,horseCount:total,usableFeatureCount,allExpectedSourcesPresentCount,
+      usableFeatureDespiteMissingExpectedSourceCount,missingFeatureDespiteAllExpectedSourcesPresentCount,featureAndSourceCompleteCount,dependencyCoveragePercentage:metadataMissing?null:percentage(featureAndSourceCompleteCount,total),undiscoveredExpectedSources:undiscovered};
+  }).sort((a,b)=>a.featureGroup.localeCompare(b.featureGroup)||a.featureKey.localeCompare(b.featureKey));
+  return{summary:summaries,patterns,patternCount:allPatterns.length,patternsTruncated:allPatterns.length>MISSING_PATTERN_MAX_DISPLAY,dependencies,issues:sortMissingIssues(issues),fieldPaths:paths};
+}
+export function buildCoMissingness(model,fieldPaths=[]){
+  const unique=[...new Set(fieldPaths.map(String).filter(Boolean))],paths=unique.slice(0,CO_MISSINGNESS_MAX_FIELDS),selectionTruncated=unique.length>CO_MISSINGNESS_MAX_FIELDS;
+  if(paths.length<2)return{valid:false,reason:"2つ以上のフィールドを選択してください",fieldPaths:paths,selectionTruncated,rows:[]};
+  const rows=[];for(let left=0;left<paths.length;left++)for(let right=left+1;right<paths.length;right++){
+    let bothUsable=0,leftMissingOnly=0,rightMissingOnly=0,bothMissing=0;
+    for(const row of model.horses){const l=usableState(missingPathState(row,paths[left])),r=usableState(missingPathState(row,paths[right]));if(l&&r)bothUsable++;else if(!l&&r)leftMissingOnly++;else if(l&&!r)rightMissingOnly++;else bothMissing++;}
+    rows.push({leftField:paths[left],rightField:paths[right],bothUsable,leftMissingOnly,rightMissingOnly,bothMissing,bothMissingPercentage:percentage(bothMissing,model.horses.length)});
+  }
+  return{valid:true,reason:"",fieldPaths:paths,selectionTruncated,rows};
+}
+export function buildMonthlyMissingness(model,fieldPath){
+  if(!fieldPath)return[];
+  const groups=new Map();for(const row of model.horses){const month=row.date?row.date.slice(0,7):"undated",state=missingPathState(row,fieldPath),group=groups.get(month)||{month,monthLabel:month==="undated"?"日付不明":month,horseCount:0,presentCount:0,usableCount:0,missingUnusableCount:0,missingnessPercentage:0,percentagePointDifference:null};group.horseCount++;if(state.present)group.presentCount++;if(usableState(state))group.usableCount++;else group.missingUnusableCount++;groups.set(month,group);}
+  const rows=[...groups.values()].sort((a,b)=>a.month==="undated"?1:b.month==="undated"?-1:a.month.localeCompare(b.month));let previous=null;for(const row of rows){row.missingnessPercentage=percentage(row.missingUnusableCount,row.horseCount);if(row.month==="undated"){row.percentagePointDifference=null;continue;}row.percentagePointDifference=previous===null?null:Math.round((row.missingnessPercentage-previous)*10)/10;previous=row.missingnessPercentage;}return rows;
+}
+export function filterMissingnessSummary(rows=[],f={}){
+  const q=String(f.search||"").toLowerCase();return rows.filter(row=>(!f.section||row.section===f.section)&&(!f.fieldPath||row.fieldPath.includes(f.fieldPath))&&(!numeric(f.minimumMissingness)||row.missingnessPercentage>=Number(f.minimumMissingness))&&(!numeric(f.maximumUsable)||row.usableValuePercentage<=Number(f.maximumUsable))&&(!f.issuesOnly||row.missingCount>0)&&(!q||row.fieldPath.toLowerCase().includes(q)));
+}
+export function filterDependencyAudit(rows=[],f={}){
+  const q=String(f.search||"").toLowerCase();return rows.filter(row=>(!f.featureGroup||row.featureGroup===f.featureGroup)&&(!f.featureKey||row.featureKey.includes(f.featureKey))&&(!f.issuesOnly||!row.dependencyConfigured||row.usableFeatureDespiteMissingExpectedSourceCount||row.missingFeatureDespiteAllExpectedSourcesPresentCount||row.undiscoveredExpectedSources.length)&&(!q||`${row.featureKey} ${row.displayName}`.toLowerCase().includes(q)));
+}
+export function filterMissingnessIssues(rows=[],f={}){
+  const q=String(f.search||"").toLowerCase();return sortMissingIssues(rows.filter(row=>(!f.severity||row.severity===f.severity)&&(!f.type||row.type===f.type)&&(!f.section||row.section===f.section)&&(!f.fieldPath||String(row.fieldPath).includes(f.fieldPath))&&(!f.featureGroup||row.featureGroup===f.featureGroup)&&(!f.featureKey||row.featureKey===f.featureKey)&&(!f.classification||row.classification===f.classification)&&(!f.raceId||row.raceId===f.raceId)&&(!f.issuesOnly||true)&&(!q||`${row.fieldPath} ${row.featureKey} ${row.raceName} ${row.horseName} ${row.message}`.toLowerCase().includes(q))));
+}
+export function missingnessSummaryCsv(rows=[]){return rowsCsv(["section","fieldPath","totalHorseCount","presentCount","missingCount","absentCount","nullCount","emptyStringCount","emptyArrayCount","emptyObjectCount","nonFiniteNumberCount","invalidSectionCount","usableValueCount","missingnessPercentage","usableValuePercentage"],rows.map(r=>[r.section,r.fieldPath,r.totalHorseCount,r.presentCount,r.missingCount,r.absentCount,r.nullCount,r.emptyStringCount,r.emptyArrayCount,r.emptyObjectCount,r.nonFiniteNumberCount,r.invalidSectionCount,r.usableValueCount,r.missingnessPercentage,r.usableValuePercentage]));}
+export function missingnessPatternsCsv(rows=[]){return rowsCsv(["patternId","horseCount","percentage","missingPathCount","missingPathPreview","pathsTruncated","affectedRaceCount"],rows.map(r=>[r.patternId,r.horseCount,r.percentage,r.missingPathCount,boundedMissingMessage(r.missingPathPreview),r.pathsTruncated,r.affectedRaceCount]));}
+export function coMissingnessCsv(rows=[]){return rowsCsv(["leftField","rightField","bothUsable","leftMissingOnly","rightMissingOnly","bothMissing","bothMissingPercentage"],rows.map(r=>[r.leftField,r.rightField,r.bothUsable,r.leftMissingOnly,r.rightMissingOnly,r.bothMissing,r.bothMissingPercentage]));}
+export function dependencyAuditCsv(rows=[]){return rowsCsv(["featureKey","displayName","featureGroup","expectedSources","dependencyConfigured","horseCount","usableFeatureCount","allExpectedSourcesPresentCount","usableFeatureDespiteMissingExpectedSourceCount","missingFeatureDespiteAllExpectedSourcesPresentCount","featureAndSourceCompleteCount","dependencyCoveragePercentage","undiscoveredExpectedSources"],rows.map(r=>[r.featureKey,r.displayName,r.featureGroup,r.expectedSources.join(" | "),r.dependencyConfigured,r.horseCount,r.usableFeatureCount,r.allExpectedSourcesPresentCount,r.usableFeatureDespiteMissingExpectedSourceCount,r.missingFeatureDespiteAllExpectedSourcesPresentCount,r.featureAndSourceCompleteCount,r.dependencyCoveragePercentage,r.undiscoveredExpectedSources.join(" | ")]));}
+export function monthlyMissingnessCsv(rows=[]){return rowsCsv(["month","horseCount","presentCount","usableCount","missingUnusableCount","missingnessPercentage","percentagePointDifference"],rows.map(r=>[r.monthLabel,r.horseCount,r.presentCount,r.usableCount,r.missingUnusableCount,r.missingnessPercentage,r.percentagePointDifference]));}
+export function missingnessIssuesCsv(rows=[]){return rowsCsv(["severity","type","section","fieldPath","featureKey","raceDate","raceName","raceId","horseNumber","horseName","classification","expectedSources","missingExpectedSources","message"],rows.map(r=>[r.severity,r.type,r.section,r.fieldPath,r.featureKey,r.raceDate||"日付不明",r.raceName,r.raceId,r.horseNumber,r.horseName,r.classification,r.expectedSources.join(" | "),r.missingExpectedSources.join(" | "),boundedMissingMessage(r.message)]));}
+
 export function buildResearchDashboard(races=[]){
   const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
   const qualityScores=horses.map(({horse})=>horse.quality?.qualityScore).filter(numeric).map(Number);
