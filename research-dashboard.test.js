@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildSchemaTypeAudit,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaRuntimeType,schemaStabilityCsv,schemaValuePreview,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses} from "./research-dashboard.js";
+import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildSchemaTypeAudit,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaRuntimeType,schemaStabilityCsv,schemaValuePreview,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses,buildMissingnessAudit,buildCoMissingness,buildMonthlyMissingness,missingnessClassification,filterMissingnessSummary,filterDependencyAudit,filterMissingnessIssues,missingnessSummaryCsv,missingnessPatternsCsv,coMissingnessCsv,dependencyAuditCsv,monthlyMissingnessCsv,missingnessIssuesCsv,MISSING_PATTERN_MAX_PATHS,MISSING_PATTERN_MAX_DISPLAY,CO_MISSINGNESS_MAX_FIELDS,MISSING_ISSUE_MESSAGE_MAX_LENGTH} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -308,4 +308,110 @@ test("schema previews, filters, pagination and CSV are bounded and escaped",()=>
  const issues=filterSchemaIssues(audit.issues,{severity:"error",type:"feature-dictionary-type-conflict",section:"features",raceId:"r,1",search:"features.x"});assert.equal(paginate(issues,1,25).total,1);
  for(const csv of [schemaConformanceCsv(audit.sectionConformance),schemaInventoryCsv(audit.inventory),schemaStabilityCsv(audit.stability),schemaIssuesCsv(issues)])assert.equal(csv.charCodeAt(0),0xFEFF);
  assert.match(schemaIssuesCsv(issues),/"r,1"/);
+});
+
+test("missingness classifications distinguish absent, empty, usable and non-finite values",()=>{
+ assert.equal(missingnessClassification(undefined,false),"absent");
+ assert.equal(missingnessClassification(null),"null");
+ assert.equal(missingnessClassification(" \t"),"empty string");
+ assert.equal(missingnessClassification([]),"empty array");
+ assert.equal(missingnessClassification({}),"empty object");
+ assert.equal(missingnessClassification(0),"usable");
+ assert.equal(missingnessClassification(false),"usable");
+ assert.equal(missingnessClassification([0]),"usable");
+ assert.equal(missingnessClassification({x:0}),"usable");
+ assert.equal(missingnessClassification(Infinity),"non-finite number");
+ assert.equal(missingnessClassification({},true,false),"invalid canonical section");
+});
+
+test("field missingness separates absent and present empty values using canonical roots only",()=>{
+ const races=[{raceId:"r",horses:[
+   horse({features:{x:0},raw:{},quality:{},ocr:{},logs:{},versions:{}}),
+   horse({features:{x:null},raw:{},quality:{},ocr:{},logs:{},versions:{}}),
+   horse({features:{x:" "},raw:{},quality:{},ocr:{},logs:{},versions:{}}),
+   horse({features:{},raw:{},quality:{},ocr:{},logs:{},versions:{}}),
+   horse({features:[],raw:{},quality:{},ocr:{},logs:{},versions:{}})
+ ]}];
+ const model=buildCanonicalResearchModel(races),schema=buildSchemaTypeAudit(model),audit=buildMissingnessAudit(model,schema);
+ const x=audit.summary.find(row=>row.fieldPath==="features.x");
+ assert.deepEqual([x.presentCount,x.absentCount,x.nullCount,x.emptyStringCount,x.usableValueCount,x.invalidSectionCount],[4,1,1,1,1,1]);
+ assert.equal(x.missingnessPercentage,80);
+ assert.equal(audit.summary.find(row=>row.fieldPath==="features").invalidSectionCount,1);
+});
+
+test("missingness patterns are grouped and deterministically ordered with explicit limits",()=>{
+ const horses=[];for(let i=0;i<MISSING_PATTERN_MAX_DISPLAY+2;i++)horses.push(horse({raw:{[`k${i}`]:i},features:{x:i},quality:{},ocr:{},logs:{},versions:{}}));
+ const model=buildCanonicalResearchModel([{raceId:"r",horses}]),audit=buildMissingnessAudit(model,buildSchemaTypeAudit(model));
+ assert.equal(audit.patterns.length,MISSING_PATTERN_MAX_DISPLAY);
+ assert.equal(audit.patternsTruncated,true);
+ assert.ok(audit.patterns.every(pattern=>pattern.missingPaths.length<=MISSING_PATTERN_MAX_PATHS));
+ const sorted=[...audit.patterns].sort((a,b)=>b.horseCount-a.horseCount||b.missingPathCount-a.missingPathCount||a.patternKey.localeCompare(b.patternKey));
+ assert.deepEqual(audit.patterns.map(x=>x.patternKey),sorted.map(x=>x.patternKey));
+});
+
+test("selected co-missingness counts combinations and enforces selection limits",()=>{
+ const model=buildCanonicalResearchModel([{raceId:"r",horses:[
+   horse({features:{a:1,b:1}}),horse({features:{a:null,b:1}}),horse({features:{a:1,b:null}}),horse({features:{a:null,b:null}})
+ ]}]);
+ assert.equal(buildCoMissingness(model,["features.a"]).valid,false);
+ const co=buildCoMissingness(model,["features.a","features.b"]);
+ assert.deepEqual(co.rows[0],{leftField:"features.a",rightField:"features.b",bothUsable:1,leftMissingOnly:1,rightMissingOnly:1,bothMissing:1,bothMissingPercentage:25});
+ const limited=buildCoMissingness(model,Array.from({length:CO_MISSINGNESS_MAX_FIELDS+2},(_,i)=>`features.k${i}`));
+ assert.equal(limited.fieldPaths.length,CO_MISSINGNESS_MAX_FIELDS);assert.equal(limited.selectionTruncated,true);
+});
+
+test("feature dependencies come only from dictionary sourceFields and emit every dependency issue",()=>{
+ const races=[{raceId:"r",horses:[
+   horse({raw:{entryCsv:{x:1}},features:{a:1,b:null,c:1},quality:{},ocr:{},logs:{},versions:{}}),
+   horse({raw:{targetText:{x:1},entryCsv:{x:1}},features:{a:null,b:1,c:1},quality:{},ocr:{},logs:{},versions:{}})
+ ]}];
+ const dictionary=[{key:"a",名称:"A",group:"g",sourceFields:["targetText"]},{key:"b",group:"g",sourceFields:["entryCsv"]},{key:"c",group:"g",sourceFields:["unknown"]},{key:"d",group:"g"}];
+ const model=buildCanonicalResearchModel(races),audit=buildMissingnessAudit(model,buildSchemaTypeAudit(model,dictionary),dictionary),a=audit.dependencies.find(x=>x.featureKey==="a");
+ assert.equal(a.usableFeatureDespiteMissingExpectedSourceCount,1);assert.equal(a.missingFeatureDespiteAllExpectedSourcesPresentCount,1);
+ assert.ok(audit.issues.some(x=>x.type==="usable-feature-with-missing-source"));
+ assert.ok(audit.issues.some(x=>x.type==="missing-feature-with-complete-sources"));
+ assert.ok(audit.issues.some(x=>x.type==="undiscovered-expected-source"&&x.severity==="error"));
+ assert.ok(audit.issues.some(x=>x.type==="feature-dependency-not-configured"));
+ assert.equal(audit.dependencies.find(x=>x.featureKey==="d").dependencyCoveragePercentage,null);
+});
+
+test("monthly missingness is chronological, includes boundaries and puts undated last",()=>{
+ const model=buildCanonicalResearchModel([
+   {raceId:"late",meta:{date:"2026-02-01"},horses:[horse({features:{x:null}})]},
+   {raceId:"early",meta:{date:"2026-01-31"},horses:[horse({features:{x:1}}),horse({features:{x:null}})]},
+   {raceId:"u",horses:[horse({features:{x:null}})]}
+ ]);
+ const rows=buildMonthlyMissingness(model,"features.x");
+ assert.deepEqual(rows.map(x=>x.month),["2026-01","2026-02","undated"]);
+ assert.deepEqual(rows.map(x=>x.missingnessPercentage),[50,100,100]);
+ assert.deepEqual(rows.map(x=>x.percentagePointDifference),[null,50,null]);
+});
+
+test("Phase 9 ignores race summaries and reads Horse canonical roots only",()=>{
+ const race={raceId:"r",raw:{fallback:{value:1}},features:{fallback:1},quality:{fallback:1},ocr:{fallback:1},logs:{fallback:1},versions:{fallback:1},horses:[horse({raw:{},features:{},quality:{},ocr:{},logs:{},versions:{}})]};
+ const model=buildCanonicalResearchModel([race]),audit=buildMissingnessAudit(model,buildSchemaTypeAudit(model));
+ assert.ok(!audit.fieldPaths.some(path=>path.endsWith(".fallback")));
+ assert.equal(audit.summary.find(row=>row.fieldPath==="features").emptyObjectCount,1);
+});
+
+test("missingness filters paginate before export and CSV remains BOM escaped and bounded",()=>{
+ const model=buildCanonicalResearchModel([{raceId:"r,1",meta:{raceName:'A, "Race"'},horses:[horse({name:"Alpha",raw:{entryCsv:{value:1}},features:{x:null},quality:{},ocr:{},logs:{},versions:{}})]}]);
+ const audit=buildMissingnessAudit(model,buildSchemaTypeAudit(model),[{key:"x",group:"g",sourceFields:["entryCsv"]}]);
+ const summary=filterMissingnessSummary(audit.summary,{section:"features",fieldPath:"x",minimumMissingness:100,maximumUsable:0,issuesOnly:true,search:"features.x"});
+ assert.equal(summary.length,1);assert.equal(paginate(summary,1,25).total,1);
+ assert.equal(filterDependencyAudit(audit.dependencies,{featureGroup:"g",featureKey:"x",issuesOnly:true,search:"x"}).length,1);
+ const issues=filterMissingnessIssues(audit.issues,{severity:"warning",section:"features",fieldPath:"x",raceId:"r,1",classification:"null",search:"alpha"});
+ assert.ok(issues.length>=1);assert.ok(issues.every(x=>x.message.length<=MISSING_ISSUE_MESSAGE_MAX_LENGTH));
+ const exports=[missingnessSummaryCsv(summary),missingnessPatternsCsv(audit.patterns),coMissingnessCsv(buildCoMissingness(model,["features.x","raw.entryCsv"]).rows),dependencyAuditCsv(audit.dependencies),monthlyMissingnessCsv(buildMonthlyMissingness(model,"features.x")),missingnessIssuesCsv(issues)];
+ for(const csv of exports)assert.equal(csv.charCodeAt(0),0xFEFF);
+ assert.match(missingnessIssuesCsv(issues),/"r,1"/);
+});
+
+test("Phase 9 audit handles 1000 races and 20000 Horses within performance budget",()=>{
+ const races=Array.from({length:1000},(_,raceIndex)=>({raceId:`r${raceIndex}`,meta:{date:`2026-${String(raceIndex%12+1).padStart(2,"0")}-01`},horses:Array.from({length:20},(_,horseIndex)=>({
+   number:horseIndex+1,name:`h${horseIndex}`,raw:{entryCsv:{value:horseIndex}},features:{x:horseIndex},quality:{qualityScore:80},ocr:{confidence:.9},logs:{updatedAt:"2026-01-01T00:00:00Z"},versions:{horse:"1"}
+ }))}));
+ const started=performance.now(),model=buildCanonicalResearchModel(races),schema=buildSchemaTypeAudit(model),audit=buildMissingnessAudit(model,schema,[{key:"x",group:"g",sourceFields:["entryCsv"]}]),elapsed=performance.now()-started;
+ assert.equal(audit.summary.find(x=>x.fieldPath==="features.x").usableValueCount,20000);
+ assert.ok(elapsed<4000,`Phase 9 audit took ${elapsed.toFixed(1)}ms`);
 });
