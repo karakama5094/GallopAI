@@ -584,6 +584,219 @@ export function dependencyAuditCsv(rows=[]){return rowsCsv(["featureKey","displa
 export function monthlyMissingnessCsv(rows=[]){return rowsCsv(["month","horseCount","presentCount","usableCount","missingUnusableCount","missingnessPercentage","percentagePointDifference"],rows.map(r=>[r.monthLabel,r.horseCount,r.presentCount,r.usableCount,r.missingUnusableCount,r.missingnessPercentage,r.percentagePointDifference]));}
 export function missingnessIssuesCsv(rows=[]){return rowsCsv(["severity","type","section","fieldPath","featureKey","raceDate","raceName","raceId","horseNumber","horseName","classification","expectedSources","missingExpectedSources","message"],rows.map(r=>[r.severity,r.type,r.section,r.fieldPath,r.featureKey,r.raceDate||"日付不明",r.raceName,r.raceId,r.horseNumber,r.horseName,r.classification,r.expectedSources.join(" | "),r.missingExpectedSources.join(" | "),boundedMissingMessage(r.message)]));}
 
+export const CONSTRAINT_VALUE_PREVIEW_MAX_LENGTH=120,CONSTRAINT_ISSUE_MESSAGE_MAX_LENGTH=180;
+const constraint=(id,displayName,description,severity,sections,fieldPaths,applicabilityRule)=>Object.freeze({id,displayName,description,severity,sections:Object.freeze(sections),fieldPaths:Object.freeze(fieldPaths),applicabilityRule});
+export const CROSS_FIELD_CONSTRAINT_CATALOG=Object.freeze([
+  constraint("C01","qualityScore range","quality.qualityScore must be a finite number from 0 through 100.","error",["quality"],["quality.qualityScore"],"Applicable when quality.qualityScore is present."),
+  constraint("C02","OCR confidence range","ocr.confidence must be a finite number from 0 through 1.","error",["ocr"],["ocr.confidence"],"Applicable when ocr.confidence is present."),
+  constraint("C03","missingCount integer","quality.missingCount must be a finite non-negative integer.","error",["quality"],["quality.missingCount"],"Applicable when quality.missingCount is present."),
+  constraint("C04","warningCount integer","quality.warningCount must be a finite non-negative integer.","error",["quality"],["quality.warningCount"],"Applicable when quality.warningCount is present."),
+  constraint("C05","errorCount integer","quality.errorCount must be a finite non-negative integer.","error",["quality"],["quality.errorCount"],"Applicable when quality.errorCount is present."),
+  constraint("C06","typeErrorCount integer","quality.typeErrorCount must be a finite non-negative integer.","error",["quality"],["quality.typeErrorCount"],"Applicable when quality.typeErrorCount is present."),
+  constraint("C07","abnormalCount integer","quality.abnormalCount must be a finite non-negative integer.","error",["quality"],["quality.abnormalCount"],"Applicable when quality.abnormalCount is present."),
+  constraint("C08","warning count/array","quality.warningCount must equal quality.warning.length when both exist.","warning",["quality"],["quality.warningCount","quality.warning"],"Both fields are required for comparison; one-sided absence is not applicable."),
+  constraint("C09","error count/array","quality.errorCount must equal quality.errors.length when both exist.","warning",["quality"],["quality.errorCount","quality.errors"],"Both fields are required for comparison; one-sided absence is not applicable."),
+  constraint("C10","missing count/array","quality.missingCount must equal quality.missing.length when both exist.","warning",["quality"],["quality.missingCount","quality.missing"],"Both fields are required for comparison; one-sided absence is not applicable."),
+  constraint("C11","type-error count/array","quality.typeErrorCount must equal quality.typeErrors.length when both exist.","warning",["quality"],["quality.typeErrorCount","quality.typeErrors"],"Both fields are required for comparison; one-sided absence is not applicable."),
+  constraint("C12","abnormal count/array","quality.abnormalCount must equal quality.abnormalities.length when both exist.","warning",["quality"],["quality.abnormalCount","quality.abnormalities"],"Both fields are required for comparison; one-sided absence is not applicable."),
+  constraint("C13","version value types","Canonical versions and corresponding logs version values must be non-empty strings.","error",["versions","logs"],["versions.*","logs.*Version"],"Applicable when any configured version pair value is present."),
+  constraint("C14","version pair presence","Corresponding versions and logs version values should be present on both sides.","warning",["versions","logs"],["versions.*","logs.*Version"],"Applicable when either side of a configured version pair is present."),
+  constraint("C15","version pair match","Corresponding canonical version values must match exactly.","warning",["versions","logs"],["versions.*","logs.*Version"],"Applicable when both values exist and have valid types."),
+  constraint("C16","recalculation timestamp types","Canonical recalculation and history timestamps must be valid timestamp-like values.","error",["logs"],["logs.updatedAt","logs.calculatedAt","logs.recalculateHistory"],"Applicable when any designated recalculation timestamp is present."),
+  constraint("C17","recalculation history order","No valid recalculateHistory.at value may be later than the canonical updatedAt/calculatedAt value.","warning",["logs"],["logs.updatedAt","logs.calculatedAt","logs.recalculateHistory[].at"],"Applicable when a canonical timestamp and at least one valid history timestamp exist."),
+  constraint("C18","dictionary numeric type","Values declared numeric by feature dictionary metadata must be finite numbers when populated.","error",["features"],["features.*"],"Applicable when at least one declared numeric feature is populated."),
+  constraint("C19","dictionary declared range","Feature values must remain within explicit dictionary minimum and maximum metadata.","error",["features"],["features.*"],"Applicable only when explicit finite minimum and maximum metadata exist and the feature is populated."),
+  constraint("C20","dictionary pre-race metadata","availablePreRace=true must not conflict with leakageRisk=POST_RACE_ONLY.","warning",["features"],["features.*"],"Applicable when both dictionary metadata fields are configured."),
+  constraint("C21","pre-race post-race population","POST_RACE_ONLY features must not be populated in an explicitly PRE_RACE snapshot.","warning",["raw","logs","features"],["raw.snapshotPhase","raw.meta.snapshotPhase","logs.snapshotPhase","features.*"],"Applicable only when an exact canonical snapshotPhase value is PRE_RACE."),
+  constraint("C22","dictionary source discovery","Every configured sourceFields entry must resolve to a Phase 8/9 discovered canonical path.","error",["raw","features"],["raw.*","features.*"],"Applicable when feature dictionary sourceFields metadata is configured.")
+]);
+const CONSTRAINT_BY_ID=new Map(CROSS_FIELD_CONSTRAINT_CATALOG.map(item=>[item.id,item]));
+const VERSION_PAIRS=Object.freeze([
+  ["versions.features","logs.featureVersion"],["versions.quality","logs.qualityVersion"],["versions.ocr","logs.ocrVersion"],
+  ["versions.raw","logs.rawVersion"],["versions.logs","logs.logsVersion"],["versions.horse","logs.horseVersion"]
+]);
+export function constraintValuePreview(value,maxLength=CONSTRAINT_VALUE_PREVIEW_MAX_LENGTH){
+  let text;try{
+    if(typeof value==="string")text=value;
+    else if(Array.isArray(value))text=`Array(${value.length})`;
+    else if(value&&typeof value==="object")text=typeof value?.toDate==="function"?"Timestamp-like":value instanceof Date?value.toISOString():`Object(${Object.keys(value).length})`;
+    else text=String(value);
+  }catch{text="[unavailable]";}
+  return text.length>maxLength?`${text.slice(0,maxLength-1)}…`:text;
+}
+const boundedConstraintMessage=value=>{const text=String(value??"");return text.length>CONSTRAINT_ISSUE_MESSAGE_MAX_LENGTH?`${text.slice(0,CONSTRAINT_ISSUE_MESSAGE_MAX_LENGTH-1)}…`:text;};
+function constraintPathState(row,path){
+  const keys=String(path).split("."),section=keys.shift();let value=row[section];
+  if(value===undefined)return{present:false,value:undefined};
+  for(const key of keys){if(value===null||typeof value!=="object"||Array.isArray(value)||!Object.prototype.hasOwnProperty.call(value,key))return{present:false,value:undefined};value=value[key];}
+  return{present:value!==undefined,value};
+}
+const constraintObserved=(items=[])=>constraintValuePreview(items.map(([path,value])=>`${path}=${constraintValuePreview(value)}`).join(" | "));
+const exactFiniteNumber=value=>typeof value==="number"&&Number.isFinite(value);
+const nonNegativeInteger=value=>exactFiniteNumber(value)&&Number.isInteger(value)&&value>=0;
+const versionString=value=>typeof value==="string"&&value.length>0&&value.trim().length>0;
+function featureRangeMetadata(item){
+  const minimum=item?.minimum??item?.min??item?.minimumValue??item?.validation?.minimum??item?.validation?.min??(Array.isArray(item?.range)?item.range[0]:item?.range?.minimum??item?.range?.min);
+  const maximum=item?.maximum??item?.max??item?.maximumValue??item?.validation?.maximum??item?.validation?.max??(Array.isArray(item?.range)?item.range[1]:item?.range?.maximum??item?.range?.max);
+  return exactFiniteNumber(minimum)&&exactFiniteNumber(maximum)?{minimum,maximum}:null;
+}
+const dictionaryNumeric=item=>String(item?.型??item?.type??"").includes("number");
+const dictionarySourcePath=source=>CANONICAL_SECTIONS.some(section=>String(source)===section||String(source).startsWith(`${section}.`))?String(source):`raw.${String(source)}`;
+function snapshotPhase(row){
+  for(const path of ["raw.snapshotPhase","raw.meta.snapshotPhase","logs.snapshotPhase"]){const state=constraintPathState(row,path);if(state.present)return{path,value:state.value};}
+  return{path:"",value:undefined};
+}
+function constraintEvaluation(row,catalog,status,issueType="",observedValues="",expectedConstraint=catalog.description,message="",severity=catalog.severity){
+  return{constraintId:catalog.id,displayName:catalog.displayName,severity,status,issueType,sections:[...catalog.sections],fieldPaths:[...catalog.fieldPaths],
+    raceDate:row.date,raceName:row.race?.meta?.raceName||row.race?.raceName||row.raceId,raceId:row.raceId,horseNumber:row.number,horseName:row.name,
+    observedValues:constraintValuePreview(observedValues),expectedConstraint:constraintValuePreview(expectedConstraint),message:boundedConstraintMessage(message),originalIndex:row.originalIndex??`${row.raceIndex}:${row.horseIndex}`};
+}
+const pass=(row,catalog,observed="",expected=catalog.description)=>constraintEvaluation(row,catalog,"pass","",observed,expected,"");
+const notApplicable=(row,catalog,reason)=>constraintEvaluation(row,catalog,"not-applicable",reason,"",catalog.description,reason);
+const failure=(row,catalog,type,observed,message,severity=catalog.severity)=>constraintEvaluation(row,catalog,"failure",type,observed,catalog.description,message,severity);
+function evaluateRange(row,catalog,path,minimum,maximum){
+  const state=constraintPathState(row,path);if(!state.present||state.value===null)return notApplicable(row,catalog,"value-missing");
+  const observed=constraintObserved([[path,state.value]]);
+  if(!exactFiniteNumber(state.value))return failure(row,catalog,"invalid-numeric-type",observed,`${path} is not a finite number`);
+  return state.value>=minimum&&state.value<=maximum?pass(row,catalog,observed):failure(row,catalog,"out-of-range",observed,`${path} is outside ${minimum}–${maximum}`);
+}
+function evaluateCount(row,catalog,path){
+  const state=constraintPathState(row,path);if(!state.present||state.value===null)return notApplicable(row,catalog,"count-missing");
+  const observed=constraintObserved([[path,state.value]]);
+  return nonNegativeInteger(state.value)?pass(row,catalog,observed):failure(row,catalog,"invalid-count-type",observed,`${path} must be a finite non-negative integer`);
+}
+function evaluateCountArray(row,catalog,countPath,arrayPath){
+  const count=constraintPathState(row,countPath),array=constraintPathState(row,arrayPath);
+  if(!count.present&&!array.present)return notApplicable(row,catalog,"count-and-array-missing");
+  if(!count.present)return notApplicable(row,catalog,"count-missing");
+  if(!array.present)return notApplicable(row,catalog,"array-missing");
+  const observed=constraintObserved([[countPath,count.value],[arrayPath,array.value]]);
+  if(!nonNegativeInteger(count.value))return failure(row,catalog,"invalid-count-type",observed,`${countPath} is invalid`);
+  if(!Array.isArray(array.value))return failure(row,catalog,"invalid-array-type",observed,`${arrayPath} is not an array`);
+  return count.value===array.value.length?pass(row,catalog,observed):failure(row,catalog,"count-mismatch",observed,`${countPath} does not equal ${arrayPath}.length`);
+}
+function evaluateConstraint(row,catalog,context){
+  if(catalog.id==="C01")return evaluateRange(row,catalog,"quality.qualityScore",0,100);
+  if(catalog.id==="C02")return evaluateRange(row,catalog,"ocr.confidence",0,1);
+  const countPaths={C03:"quality.missingCount",C04:"quality.warningCount",C05:"quality.errorCount",C06:"quality.typeErrorCount",C07:"quality.abnormalCount"};
+  if(countPaths[catalog.id])return evaluateCount(row,catalog,countPaths[catalog.id]);
+  const countArrays={C08:["quality.warningCount","quality.warning"],C09:["quality.errorCount","quality.errors"],C10:["quality.missingCount","quality.missing"],C11:["quality.typeErrorCount","quality.typeErrors"],C12:["quality.abnormalCount","quality.abnormalities"]};
+  if(countArrays[catalog.id])return evaluateCountArray(row,catalog,...countArrays[catalog.id]);
+  if(catalog.id==="C13"){
+    const present=VERSION_PAIRS.flatMap(pair=>pair.map(path=>[path,constraintPathState(row,path)])).filter(([,state])=>state.present);if(!present.length)return notApplicable(row,catalog,"version-values-missing");
+    const invalid=present.filter(([,state])=>!versionString(state.value));const observed=constraintObserved(present.map(([path,state])=>[path,state.value]));
+    return invalid.length?failure(row,catalog,"invalid-version-type",observed,`Invalid version paths: ${invalid.map(([path])=>path).join(", ")}`):pass(row,catalog,observed);
+  }
+  if(catalog.id==="C14"){
+    const pairs=VERSION_PAIRS.map(([leftPath,rightPath])=>({leftPath,rightPath,left:constraintPathState(row,leftPath),right:constraintPathState(row,rightPath)})).filter(pair=>pair.left.present||pair.right.present);
+    if(!pairs.length)return notApplicable(row,catalog,"version-pairs-missing");
+    const oneSided=pairs.filter(pair=>pair.left.present!==pair.right.present),observed=constraintObserved(pairs.flatMap(pair=>[[pair.leftPath,pair.left.value],[pair.rightPath,pair.right.value]]));
+    return oneSided.length?failure(row,catalog,"one-sided-version",observed,`One-sided version pairs: ${oneSided.map(pair=>`${pair.leftPath}/${pair.rightPath}`).join(", ")}`):pass(row,catalog,observed);
+  }
+  if(catalog.id==="C15"){
+    const pairs=VERSION_PAIRS.map(([leftPath,rightPath])=>({leftPath,rightPath,left:constraintPathState(row,leftPath),right:constraintPathState(row,rightPath)})).filter(pair=>pair.left.present&&pair.right.present&&versionString(pair.left.value)&&versionString(pair.right.value));
+    if(!pairs.length)return notApplicable(row,catalog,"valid-version-pair-missing");
+    const conflicts=pairs.filter(pair=>pair.left.value!==pair.right.value),observed=constraintObserved(pairs.flatMap(pair=>[[pair.leftPath,pair.left.value],[pair.rightPath,pair.right.value]]));
+    return conflicts.length?failure(row,catalog,"conflicting-version",observed,`Conflicting version pairs: ${conflicts.map(pair=>`${pair.leftPath}/${pair.rightPath}`).join(", ")}`):pass(row,catalog,observed);
+  }
+  if(catalog.id==="C16"||catalog.id==="C17"){
+    const canonicalPaths=["logs.updatedAt","logs.calculatedAt"],canonical=canonicalPaths.map(path=>[path,constraintPathState(row,path)]).filter(([,state])=>state.present);
+    const historyState=constraintPathState(row,"logs.recalculateHistory"),history=historyState.present&&Array.isArray(historyState.value)?historyState.value:[];
+    const historyItems=history.map((item,index)=>[`logs.recalculateHistory[${index}].at`,item?.at]).filter(([,value])=>value!==undefined);
+    if(catalog.id==="C16"){
+      const timestampItems=[...canonical.map(([path,state])=>[path,state.value]),...historyItems];if(!timestampItems.length)return notApplicable(row,catalog,"timestamps-missing");
+      if(historyState.present&&!Array.isArray(historyState.value))return failure(row,catalog,"invalid-history-type",constraintObserved([["logs.recalculateHistory",historyState.value]]),"logs.recalculateHistory is not an array");
+      const invalid=timestampItems.filter(([,value])=>parseAuditTimestamp(value).kind!=="valid"),observed=constraintObserved(timestampItems);
+      return invalid.length?failure(row,catalog,"invalid-timestamp",observed,`Invalid timestamp paths: ${invalid.map(([path])=>path).join(", ")}`):pass(row,catalog,observed);
+    }
+    const canonicalValid=canonical.map(([path,state])=>[path,parseAuditTimestamp(state.value)]).filter(([,parsed])=>parsed.kind==="valid"),historyValid=historyItems.map(([path,value])=>[path,parseAuditTimestamp(value)]).filter(([,parsed])=>parsed.kind==="valid");
+    if(!canonicalValid.length||!historyValid.length)return notApplicable(row,catalog,"comparable-timestamps-missing");
+    const canonicalLatest=canonicalValid.map(([,parsed])=>parsed.iso).sort().at(-1),later=historyValid.filter(([,parsed])=>parsed.iso>canonicalLatest),observed=constraintObserved([...canonical.map(([path,state])=>[path,state.value]),...historyItems]);
+    return later.length?failure(row,catalog,"history-later-than-canonical",observed,`History entries later than canonical timestamp: ${later.map(([path])=>path).join(", ")}`):pass(row,catalog,observed);
+  }
+  if(catalog.id==="C18"){
+    const populated=context.numericDefinitions.map(item=>[item,typeof row.features==="object"&&row.features!==null?row.features[item.key]:undefined]).filter(([,value])=>value!==undefined&&value!==null);
+    if(!populated.length)return notApplicable(row,catalog,context.numericDefinitions.length?"numeric-features-missing":"metadata-not-configured");
+    const invalid=populated.filter(([,value])=>!exactFiniteNumber(value)),observed=constraintObserved(populated.map(([item,value])=>[`features.${item.key}`,value]));
+    return invalid.length?failure(row,catalog,"dictionary-numeric-type-conflict",observed,`Non-numeric declared features: ${invalid.map(([item])=>item.key).join(", ")}`):pass(row,catalog,observed);
+  }
+  if(catalog.id==="C19"){
+    const populated=context.rangedDefinitions.map(({item,range})=>({item,range,value:typeof row.features==="object"&&row.features!==null?row.features[item.key]:undefined})).filter(entry=>entry.value!==undefined&&entry.value!==null&&exactFiniteNumber(entry.value));
+    if(!context.rangedDefinitions.length)return notApplicable(row,catalog,"metadata-not-configured");if(!populated.length)return notApplicable(row,catalog,"ranged-features-missing");
+    const invalid=populated.filter(entry=>entry.value<entry.range.minimum||entry.value>entry.range.maximum),observed=constraintObserved(populated.map(entry=>[`features.${entry.item.key}`,entry.value]));
+    return invalid.length?failure(row,catalog,"dictionary-range-conflict",observed,`Out-of-range features: ${invalid.map(entry=>entry.item.key).join(", ")}`):pass(row,catalog,observed);
+  }
+  if(catalog.id==="C20"){
+    if(!context.metadataConfigured.length)return notApplicable(row,catalog,"metadata-not-configured");
+    const conflicts=context.metadataConfigured.filter(item=>item.availablePreRace===true&&item.leakageRisk==="POST_RACE_ONLY"),observed=constraintObserved(conflicts.map(item=>[`features.${item.key}`,`${item.availablePreRace}/${item.leakageRisk}`]));
+    return conflicts.length?failure(row,catalog,"feature-metadata-conflict",observed,`Conflicting dictionary entries: ${conflicts.map(item=>item.key).join(", ")}`):pass(row,catalog,`configured=${context.metadataConfigured.length}`);
+  }
+  if(catalog.id==="C21"){
+    const phase=snapshotPhase(row);if(phase.value!=="PRE_RACE")return notApplicable(row,catalog,phase.path?"snapshot-not-pre-race":"snapshot-metadata-missing");
+    const populated=context.postRaceDefinitions.filter(item=>typeof row.features==="object"&&row.features!==null&&missingnessClassification(row.features[item.key],Object.prototype.hasOwnProperty.call(row.features,item.key))==="usable");
+    const observed=constraintObserved([[phase.path,phase.value],...populated.map(item=>[`features.${item.key}`,row.features[item.key]])]);
+    return populated.length?failure(row,catalog,"post-race-feature-in-pre-race-snapshot",observed,`POST_RACE_ONLY features populated: ${populated.map(item=>item.key).join(", ")}`):pass(row,catalog,observed);
+  }
+  if(catalog.id==="C22"){
+    if(!context.sourceDefinitions.length)return notApplicable(row,catalog,"metadata-not-configured");
+    const observed=constraintObserved(context.undiscoveredSources.map(path=>[path,"undiscovered"]));
+    return context.undiscoveredSources.length?failure(row,catalog,"undiscovered-expected-source",observed,`Undiscovered source paths: ${context.undiscoveredSources.join(", ")}`):pass(row,catalog,`configured=${context.sourceDefinitions.length}`);
+  }
+  return notApplicable(row,catalog,"constraint-not-configured");
+}
+function sortConstraintIssues(rows=[]){
+  const rank={error:0,warning:1};
+  return stableSort(rows,(a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)||a.constraintId.localeCompare(b.constraintId)||(a.raceDate&&b.raceDate?a.raceDate.localeCompare(b.raceDate):a.raceDate?-1:b.raceDate?1:0)||
+    String(a.raceId).localeCompare(String(b.raceId))||String(a.horseNumber??"").localeCompare(String(b.horseNumber??""),undefined,{numeric:true})||String(a.originalIndex).localeCompare(String(b.originalIndex),undefined,{numeric:true}));
+}
+export function buildCrossFieldConstraintAudit(model,schemaAudit,missingAudit,dictionary=[]){
+  const discoveredPaths=new Set([...(missingAudit?.fieldPaths||[]),...(schemaAudit?.inventory||[]).map(item=>item.fieldPath)]),numericDefinitions=dictionary.filter(dictionaryNumeric),
+    rangedDefinitions=dictionary.map(item=>({item,range:featureRangeMetadata(item)})).filter(entry=>entry.range),metadataConfigured=dictionary.filter(item=>typeof item.availablePreRace==="boolean"&&typeof item.leakageRisk==="string"&&item.leakageRisk),
+    postRaceDefinitions=dictionary.filter(item=>item.leakageRisk==="POST_RACE_ONLY"),sourceDefinitions=dictionary.filter(item=>Array.isArray(item.sourceFields)&&item.sourceFields.length),
+    sourcePaths=[...new Set(sourceDefinitions.flatMap(item=>item.sourceFields.map(dictionarySourcePath)))].sort(),undiscoveredSources=sourcePaths.filter(path=>!discoveredPaths.has(path)&&![...discoveredPaths].some(item=>item.startsWith(`${path}.`))),
+    context={numericDefinitions,rangedDefinitions,metadataConfigured,postRaceDefinitions,sourceDefinitions,undiscoveredSources},evaluations=[];
+  model.horses.forEach((row,index)=>{row.originalIndex=index;for(const item of CROSS_FIELD_CONSTRAINT_CATALOG)evaluations.push(evaluateConstraint(row,item,context));});
+  const issues=sortConstraintIssues(evaluations.filter(item=>item.status==="failure"));
+  const evaluationsByConstraint=new Map(CROSS_FIELD_CONSTRAINT_CATALOG.map(item=>[item.id,[]])),evaluationsByRace=new Map(model.races.map(race=>[race.raceId,[]]));
+  for(const item of evaluations){evaluationsByConstraint.get(item.constraintId).push(item);evaluationsByRace.get(item.raceId)?.push(item);}
+  const constraintSummary=CROSS_FIELD_CONSTRAINT_CATALOG.map(item=>{
+    const rows=evaluationsByConstraint.get(item.id),applicable=rows.filter(row=>row.status!=="not-applicable"),failed=applicable.filter(row=>row.status==="failure"),affected=[...new Map(failed.map(row=>[row.raceId,row])).values()],
+      dated=affected.filter(row=>row.raceDate).sort((a,b)=>b.raceDate.localeCompare(a.raceDate)||a.raceId.localeCompare(b.raceId)),recent=dated[0]||affected.sort((a,b)=>a.raceId.localeCompare(b.raceId)).at(-1)||null;
+    return{constraintId:item.id,displayName:item.displayName,severity:item.severity,sections:[...item.sections],fieldPaths:[...item.fieldPaths],applicableHorseCount:applicable.length,passedCount:applicable.length-failed.length,failedCount:failed.length,
+      notApplicableCount:rows.length-applicable.length,conformancePercentage:applicable.length?percentage(applicable.length-failed.length,applicable.length):null,affectedRaceCount:affected.length,mostRecentAffectedRace:recent?recent.raceName:"",mostRecentAffectedRaceId:recent?recent.raceId:"",mostRecentAffectedRaceDate:recent?recent.raceDate:""};
+  });
+  const raceSummary=model.races.map(race=>{
+    const rows=evaluationsByRace.get(race.raceId),applicable=rows.filter(row=>row.status!=="not-applicable"),failed=applicable.filter(row=>row.status==="failure");
+    return{raceDate:race.date,raceName:race.race?.meta?.raceName||race.race?.raceName||race.raceId,raceId:race.raceId,horseCount:race.horseCount,applicableConstraintCount:applicable.length,passedCount:applicable.length-failed.length,
+      warningCount:failed.filter(row=>row.severity==="warning").length,errorCount:failed.filter(row=>row.severity==="error").length,notApplicableCount:rows.length-applicable.length,conformancePercentage:applicable.length?percentage(applicable.length-failed.length,applicable.length):null};
+  }).sort((a,b)=>a.raceDate&&b.raceDate?a.raceDate.localeCompare(b.raceDate):a.raceDate?-1:b.raceDate?1:a.raceId.localeCompare(b.raceId));
+  const registrationLabels=["both-registered","quality-only","ocr-only","neither-registered"],registrationRows=model.horses.map(row=>{
+    const quality=constraintPathState(row,"quality.qualityScore"),ocr=constraintPathState(row,"ocr.confidence"),qualityRegistered=exactFiniteNumber(quality.value),ocrRegistered=exactFiniteNumber(ocr.value);
+    return{label:qualityRegistered&&ocrRegistered?"both-registered":qualityRegistered?"quality-only":ocrRegistered?"ocr-only":"neither-registered",quality:quality.value,ocr:ocr.value};
+  }),validBoth=registrationRows.filter(row=>row.label==="both-registered"&&row.quality>=0&&row.quality<=100&&row.ocr>=0&&row.ocr<=1),
+    registrationSummary={distribution:registrationLabels.map(label=>{const count=registrationRows.filter(row=>row.label===label).length;return{label,count,percentage:percentage(count,registrationRows.length)};}),validBothCount:validBoth.length,
+      averageQualityScore:average(validBoth.map(row=>row.quality)),averageOcrConfidence:average(validBoth.map(row=>row.ocr))};
+  return{catalog:CROSS_FIELD_CONSTRAINT_CATALOG,evaluations,constraintSummary,raceSummary,issues,registrationSummary};
+}
+export function buildMonthlyConstraintTrend(audit,constraintId){
+  const rows=(audit?.evaluations||[]).filter(row=>row.constraintId===constraintId),groups=new Map();for(const row of rows){const month=row.raceDate?row.raceDate.slice(0,7):"undated",group=groups.get(month)||{month,monthLabel:month==="undated"?"日付不明":month,applicableHorseCount:0,passedCount:0,failedCount:0,notApplicableCount:0,conformancePercentage:null,percentagePointDifference:null};if(row.status==="not-applicable")group.notApplicableCount++;else{group.applicableHorseCount++;if(row.status==="pass")group.passedCount++;else group.failedCount++;}groups.set(month,group);}
+  const result=[...groups.values()].sort((a,b)=>a.month==="undated"?1:b.month==="undated"?-1:a.month.localeCompare(b.month));let previous=null;for(const row of result){row.conformancePercentage=row.applicableHorseCount?percentage(row.passedCount,row.applicableHorseCount):null;if(row.month==="undated"||row.conformancePercentage===null){row.percentagePointDifference=null;continue;}row.percentagePointDifference=previous===null?null:Math.round((row.conformancePercentage-previous)*10)/10;previous=row.conformancePercentage;}return result;
+}
+export function filterConstraintSummary(rows=[],f={}){
+  const q=String(f.search||"").toLowerCase();return rows.filter(row=>(!f.severity||row.severity===f.severity)&&(!f.constraintId||row.constraintId===f.constraintId)&&(!f.section||row.sections.includes(f.section))&&(!f.fieldPath||row.fieldPaths.some(path=>path.includes(f.fieldPath)))&&(!f.applicableOnly||row.applicableHorseCount>0)&&(!f.failuresOnly||row.failedCount>0)&&(!q||`${row.constraintId} ${row.displayName} ${row.fieldPaths.join(" ")}`.toLowerCase().includes(q)));
+}
+export function filterRaceConstraintSummary(rows=[],f={}){
+  return rows.filter(row=>(!f.raceId||row.raceId===f.raceId)&&(!numeric(f.minimumRaceConformance)||row.conformancePercentage!==null&&row.conformancePercentage>=Number(f.minimumRaceConformance))&&(!numeric(f.maximumRaceConformance)||row.conformancePercentage!==null&&row.conformancePercentage<=Number(f.maximumRaceConformance))&&(!f.applicableOnly||row.applicableConstraintCount>0)&&(!f.failuresOnly||row.warningCount+row.errorCount>0));
+}
+export function filterConstraintIssues(rows=[],f={}){
+  const q=String(f.search||"").toLowerCase();return sortConstraintIssues(rows.filter(row=>(!f.severity||row.severity===f.severity)&&(!f.constraintId||row.constraintId===f.constraintId)&&(!f.issueType||row.issueType===f.issueType)&&(!f.section||row.sections.includes(f.section))&&(!f.fieldPath||row.fieldPaths.some(path=>path.includes(f.fieldPath)))&&(!f.raceId||row.raceId===f.raceId)&&(!q||`${row.constraintId} ${row.fieldPaths.join(" ")} ${row.raceName} ${row.horseName} ${row.message}`.toLowerCase().includes(q))));
+}
+export function constraintCatalogCsv(rows=CROSS_FIELD_CONSTRAINT_CATALOG){return rowsCsv(["constraintId","displayName","description","severity","sections","fieldPaths","applicabilityRule"],rows.map(r=>[r.id,r.displayName,r.description,r.severity,r.sections.join(" | "),r.fieldPaths.join(" | "),r.applicabilityRule]));}
+export function constraintSummaryCsv(rows=[]){return rowsCsv(["constraintId","displayName","severity","applicableHorseCount","passedCount","failedCount","notApplicableCount","conformancePercentage","affectedRaceCount","mostRecentAffectedRace","mostRecentAffectedRaceId","mostRecentAffectedRaceDate"],rows.map(r=>[r.constraintId,r.displayName,r.severity,r.applicableHorseCount,r.passedCount,r.failedCount,r.notApplicableCount,r.conformancePercentage,r.affectedRaceCount,r.mostRecentAffectedRace,r.mostRecentAffectedRaceId,r.mostRecentAffectedRaceDate]));}
+export function raceConstraintSummaryCsv(rows=[]){return rowsCsv(["raceDate","raceName","raceId","horseCount","applicableConstraintCount","passedCount","warningCount","errorCount","notApplicableCount","conformancePercentage"],rows.map(r=>[r.raceDate||"日付不明",r.raceName,r.raceId,r.horseCount,r.applicableConstraintCount,r.passedCount,r.warningCount,r.errorCount,r.notApplicableCount,r.conformancePercentage]));}
+export function monthlyConstraintTrendCsv(rows=[]){return rowsCsv(["month","applicableHorseCount","passedCount","failedCount","notApplicableCount","conformancePercentage","percentagePointDifference"],rows.map(r=>[r.monthLabel,r.applicableHorseCount,r.passedCount,r.failedCount,r.notApplicableCount,r.conformancePercentage,r.percentagePointDifference]));}
+export function constraintIssuesCsv(rows=[]){return rowsCsv(["severity","constraintId","issueType","sections","fieldPaths","raceDate","raceName","raceId","horseNumber","horseName","observedValues","expectedConstraint","message"],rows.map(r=>[r.severity,r.constraintId,r.issueType,r.sections.join(" | "),r.fieldPaths.join(" | "),r.raceDate||"日付不明",r.raceName,r.raceId,r.horseNumber,r.horseName,constraintValuePreview(r.observedValues),constraintValuePreview(r.expectedConstraint),boundedConstraintMessage(r.message)]));}
+
 export function buildResearchDashboard(races=[]){
   const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
   const qualityScores=horses.map(({horse})=>horse.quality?.qualityScore).filter(numeric).map(Number);

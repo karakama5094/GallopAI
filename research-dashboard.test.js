@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildSchemaTypeAudit,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaRuntimeType,schemaStabilityCsv,schemaValuePreview,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses,buildMissingnessAudit,buildCoMissingness,buildMonthlyMissingness,missingnessClassification,filterMissingnessSummary,filterDependencyAudit,filterMissingnessIssues,missingnessSummaryCsv,missingnessPatternsCsv,coMissingnessCsv,dependencyAuditCsv,monthlyMissingnessCsv,missingnessIssuesCsv,MISSING_PATTERN_MAX_PATHS,MISSING_PATTERN_MAX_DISPLAY,CO_MISSINGNESS_MAX_FIELDS,MISSING_ISSUE_MESSAGE_MAX_LENGTH} from "./research-dashboard.js";
+import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildSchemaTypeAudit,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaRuntimeType,schemaStabilityCsv,schemaValuePreview,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses,buildMissingnessAudit,buildCoMissingness,buildMonthlyMissingness,missingnessClassification,filterMissingnessSummary,filterDependencyAudit,filterMissingnessIssues,missingnessSummaryCsv,missingnessPatternsCsv,coMissingnessCsv,dependencyAuditCsv,monthlyMissingnessCsv,missingnessIssuesCsv,MISSING_PATTERN_MAX_PATHS,MISSING_PATTERN_MAX_DISPLAY,CO_MISSINGNESS_MAX_FIELDS,MISSING_ISSUE_MESSAGE_MAX_LENGTH,buildCrossFieldConstraintAudit,buildMonthlyConstraintTrend,filterConstraintSummary,filterRaceConstraintSummary,filterConstraintIssues,constraintCatalogCsv,constraintSummaryCsv,raceConstraintSummaryCsv,monthlyConstraintTrendCsv,constraintIssuesCsv,constraintValuePreview,CROSS_FIELD_CONSTRAINT_CATALOG,CONSTRAINT_VALUE_PREVIEW_MAX_LENGTH,CONSTRAINT_ISSUE_MESSAGE_MAX_LENGTH} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
   features:{speed:10,finish_position:2},
@@ -414,4 +414,140 @@ test("Phase 9 audit handles 1000 races and 20000 Horses within performance budge
  const started=performance.now(),model=buildCanonicalResearchModel(races),schema=buildSchemaTypeAudit(model),audit=buildMissingnessAudit(model,schema,[{key:"x",group:"g",sourceFields:["entryCsv"]}]),elapsed=performance.now()-started;
  assert.equal(audit.summary.find(x=>x.fieldPath==="features.x").usableValueCount,20000);
  assert.ok(elapsed<4000,`Phase 9 audit took ${elapsed.toFixed(1)}ms`);
+});
+
+const constraintAuditFor=(races,dictionary=[])=>{
+ const model=buildCanonicalResearchModel(races),schema=buildSchemaTypeAudit(model,dictionary),missing=buildMissingnessAudit(model,schema,dictionary);
+ return buildCrossFieldConstraintAudit(model,schema,missing,dictionary);
+};
+const evaluations=(audit,id)=>audit.evaluations.filter(row=>row.constraintId===id);
+
+test("Phase 10 constraint catalog is complete, unique and deterministic",()=>{
+ const ids=CROSS_FIELD_CONSTRAINT_CATALOG.map(item=>item.id);
+ assert.equal(ids.length,22);assert.equal(new Set(ids).size,ids.length);
+ assert.deepEqual(ids,[...ids].sort());
+ assert.ok(CROSS_FIELD_CONSTRAINT_CATALOG.every(item=>item.displayName&&item.description&&item.severity&&item.sections.length&&item.fieldPaths.length&&item.applicabilityRule));
+});
+
+test("quality, OCR and count constraints enforce exact boundaries and integer types",()=>{
+ const audit=constraintAuditFor([{raceId:"r",horses:[
+   horse({quality:{qualityScore:0,missingCount:0,warningCount:1,errorCount:2,typeErrorCount:3,abnormalCount:4},ocr:{confidence:0}}),
+   horse({quality:{qualityScore:100,missingCount:-1,warningCount:1.5,errorCount:Infinity,typeErrorCount:"1",abnormalCount:0},ocr:{confidence:1}}),
+   horse({quality:{qualityScore:100.1},ocr:{confidence:1.01}}),
+   horse({quality:{qualityScore:"80"},ocr:{confidence:"0.8"}})
+ ]}]);
+ assert.deepEqual(evaluations(audit,"C01").map(x=>x.status),["pass","pass","failure","failure"]);
+ assert.deepEqual(evaluations(audit,"C02").map(x=>x.status),["pass","pass","failure","failure"]);
+ for(const id of ["C03","C04","C05","C06"])assert.ok(evaluations(audit,id).some(x=>x.issueType==="invalid-count-type"));
+ assert.equal(evaluations(audit,"C07")[1].status,"pass");
+});
+
+test("count-to-array constraints distinguish missing, invalid and mismatch states",()=>{
+ const audit=constraintAuditFor([{raceId:"r",horses:[
+   horse({quality:{}}),
+   horse({quality:{warning:[]}}),
+   horse({quality:{warningCount:0}}),
+   horse({quality:{warningCount:0,warning:"bad"}}),
+   horse({quality:{warningCount:2,warning:["one"]}}),
+   horse({quality:{warningCount:1,warning:["one"]}})
+ ]}]);
+ const rows=evaluations(audit,"C08");
+ assert.deepEqual(rows.map(x=>[x.status,x.issueType]),[
+   ["not-applicable","count-and-array-missing"],["not-applicable","count-missing"],["not-applicable","array-missing"],
+   ["failure","invalid-array-type"],["failure","count-mismatch"],["pass",""]
+ ]);
+});
+
+test("version constraints distinguish matching, conflicting, one-sided and invalid values",()=>{
+ const audit=constraintAuditFor([{raceId:"r",horses:[
+   horse({versions:{features:"1"},logs:{featureVersion:"1"}}),
+   horse({versions:{features:"1"},logs:{featureVersion:"2"}}),
+   horse({versions:{features:"1"},logs:{}}),
+   horse({versions:{features:1},logs:{featureVersion:"1"}})
+ ]}]);
+ assert.deepEqual(evaluations(audit,"C15").map(x=>x.status),["pass","failure","not-applicable","not-applicable"]);
+ assert.equal(evaluations(audit,"C14")[2].issueType,"one-sided-version");
+ assert.equal(evaluations(audit,"C13")[3].issueType,"invalid-version-type");
+});
+
+test("recalculation timestamp constraints detect invalid values and later history entries",()=>{
+ const audit=constraintAuditFor([{raceId:"r",horses:[
+   horse({logs:{updatedAt:"2026-01-02T00:00:00Z",recalculateHistory:[{at:"2026-01-01T00:00:00Z"}]}}),
+   horse({logs:{updatedAt:"2026-01-02T00:00:00Z",recalculateHistory:[{at:"2026-01-03T00:00:00Z"}]}}),
+   horse({logs:{updatedAt:"bad",recalculateHistory:[]}}),
+   horse({logs:{updatedAt:"2026-01-02T00:00:00Z",recalculateHistory:{at:"2026-01-01T00:00:00Z"}}})
+ ]}]);
+ assert.deepEqual(evaluations(audit,"C17").map(x=>x.status),["pass","failure","not-applicable","not-applicable"]);
+ assert.equal(evaluations(audit,"C16")[2].issueType,"invalid-timestamp");
+ assert.equal(evaluations(audit,"C16")[3].issueType,"invalid-history-type");
+});
+
+test("OCR and quality relationship summary is descriptive only",()=>{
+ const audit=constraintAuditFor([{raceId:"r",horses:[
+   horse({quality:{qualityScore:90},ocr:{confidence:.9}}),horse({quality:{qualityScore:80},ocr:{}}),horse({quality:{},ocr:{confidence:.8}}),horse({quality:{},ocr:{}})
+ ]}]);
+ assert.deepEqual(audit.registrationSummary.distribution.map(x=>[x.label,x.count]),[["both-registered",1],["quality-only",1],["ocr-only",1],["neither-registered",1]]);
+ assert.equal(audit.registrationSummary.validBothCount,1);assert.equal(audit.registrationSummary.averageQualityScore,90);assert.equal(audit.registrationSummary.averageOcrConfidence,.9);
+});
+
+test("feature dictionary constraints use only configured metadata and explicit PRE_RACE state",()=>{
+ const dictionary=[
+   {key:"x",型:"number|null",minimum:0,maximum:1,availablePreRace:true,leakageRisk:"POST_RACE_ONLY",sourceFields:["unknown"]},
+   {key:"result",型:"number|null",availablePreRace:false,leakageRisk:"POST_RACE_ONLY",sourceFields:["resultCsv"]}
+ ];
+ const audit=constraintAuditFor([{raceId:"r",horses:[horse({raw:{snapshotPhase:"PRE_RACE",resultCsv:{ok:1}},features:{x:"bad",result:1},quality:{},ocr:{},logs:{},versions:{}})]}],dictionary);
+ assert.equal(evaluations(audit,"C18")[0].issueType,"dictionary-numeric-type-conflict");
+ assert.equal(evaluations(audit,"C20")[0].issueType,"feature-metadata-conflict");
+ assert.equal(evaluations(audit,"C21")[0].issueType,"post-race-feature-in-pre-race-snapshot");
+ assert.equal(evaluations(audit,"C22")[0].issueType,"undiscovered-expected-source");
+ const rangeAudit=constraintAuditFor([{raceId:"r",horses:[horse({raw:{known:{}},features:{x:2},quality:{},ocr:{},logs:{},versions:{}})]}],[{key:"x",型:"number|null",minimum:0,maximum:1,sourceFields:["known"]}]);
+ assert.equal(evaluations(rangeAudit,"C19")[0].issueType,"dictionary-range-conflict");
+ const notConfigured=constraintAuditFor([{raceId:"r",horses:[horse({features:{},raw:{},quality:{},ocr:{},logs:{},versions:{}})]}],[]);
+ for(const id of ["C18","C19","C20","C22"])assert.equal(evaluations(notConfigured,id)[0].status,"not-applicable");
+});
+
+test("race and constraint summaries are chronological and use applicable denominators",()=>{
+ const audit=constraintAuditFor([
+   {raceId:"u",horses:[horse({quality:{qualityScore:200},ocr:{}})]},
+   {raceId:"late",meta:{date:"2026-02-01"},horses:[horse({quality:{qualityScore:80},ocr:{}})]},
+   {raceId:"early",meta:{date:"2026-01-01"},horses:[horse({quality:{},ocr:{}})]}
+ ]);
+ assert.deepEqual(audit.raceSummary.map(x=>x.raceId),["early","late","u"]);
+ const quality=audit.constraintSummary.find(x=>x.constraintId==="C01");
+ assert.deepEqual([quality.applicableHorseCount,quality.passedCount,quality.failedCount,quality.notApplicableCount,quality.conformancePercentage],[2,1,1,1,50]);
+});
+
+test("monthly constraint trend uses percentage points and leaves undated difference empty",()=>{
+ const audit=constraintAuditFor([
+   {raceId:"jan",meta:{date:"2026-01-31"},horses:[horse({quality:{qualityScore:80}}),horse({quality:{qualityScore:200}})]},
+   {raceId:"feb",meta:{date:"2026-02-01"},horses:[horse({quality:{qualityScore:80}})]},
+   {raceId:"u",horses:[horse({quality:{qualityScore:200}})]}
+ ]);
+ const rows=buildMonthlyConstraintTrend(audit,"C01");
+ assert.deepEqual(rows.map(x=>x.month),["2026-01","2026-02","undated"]);
+ assert.deepEqual(rows.map(x=>x.conformancePercentage),[50,100,0]);
+ assert.deepEqual(rows.map(x=>x.percentagePointDifference),[null,50,null]);
+});
+
+test("constraint previews, combined filters, pagination and CSV are bounded and escaped",()=>{
+ const audit=constraintAuditFor([{raceId:"r,1",meta:{raceName:'A, "Race"'},horses:[horse({name:"Alpha",quality:{qualityScore:'bad, "value"'.padEnd(300,"x")},ocr:{}})]}]);
+ const preview=constraintValuePreview('bad, "value"'.padEnd(300,"x"));assert.ok(preview.length<=CONSTRAINT_VALUE_PREVIEW_MAX_LENGTH);
+ const issues=filterConstraintIssues(audit.issues,{severity:"error",constraintId:"C01",issueType:"invalid-numeric-type",section:"quality",fieldPath:"qualityScore",raceId:"r,1",search:"alpha"});
+ assert.equal(issues.length,1);assert.ok(issues[0].message.length<=CONSTRAINT_ISSUE_MESSAGE_MAX_LENGTH);assert.equal(paginate(issues,1,25).total,1);
+ assert.equal(filterConstraintSummary(audit.constraintSummary,{severity:"error",constraintId:"C01",section:"quality",fieldPath:"qualityScore",applicableOnly:true,failuresOnly:true,search:"quality"}).length,1);
+ assert.equal(filterRaceConstraintSummary(audit.raceSummary,{raceId:"r,1",minimumRaceConformance:0,maximumRaceConformance:100,applicableOnly:true,failuresOnly:true}).length,1);
+ const csvs=[constraintCatalogCsv(),constraintSummaryCsv(audit.constraintSummary),raceConstraintSummaryCsv(audit.raceSummary),monthlyConstraintTrendCsv(buildMonthlyConstraintTrend(audit,"C01")),constraintIssuesCsv(issues)];
+ for(const csv of csvs)assert.equal(csv.charCodeAt(0),0xFEFF);assert.match(constraintIssuesCsv(issues),/"r,1"/);
+});
+
+test("Phase 10 reads canonical Horse roots only and handles 20000 Horses within budget",()=>{
+ const dictionary=[{key:"x",型:"number|null",minimum:0,maximum:100,availablePreRace:true,leakageRisk:"PRE_RACE_OK",sourceFields:["entryCsv"]}];
+ const races=Array.from({length:1000},(_,raceIndex)=>({raceId:`r${raceIndex}`,meta:{date:"2026-01-01"},quality:{qualityScore:999},ocr:{confidence:9},horses:Array.from({length:20},(_,horseIndex)=>horse({
+   number:horseIndex+1,raw:{entryCsv:{value:1}},features:{x:horseIndex},quality:{qualityScore:80,missingCount:0,warningCount:0,errorCount:0,typeErrorCount:0,abnormalCount:0,warning:[]},ocr:{confidence:.9},
+   logs:{featureVersion:"1",updatedAt:"2026-01-01T00:00:00Z",recalculateHistory:[]},versions:{features:"1"}
+ }))}));
+ const started=performance.now(),model=buildCanonicalResearchModel(races),schema=buildSchemaTypeAudit(model,dictionary),missing=buildMissingnessAudit(model,schema,dictionary),audit=buildCrossFieldConstraintAudit(model,schema,missing,dictionary),elapsed=performance.now()-started;
+ assert.equal(audit.registrationSummary.distribution.find(x=>x.label==="both-registered").count,20000);
+ assert.equal(audit.constraintSummary.find(x=>x.constraintId==="C01").failedCount,0);
+ assert.ok(elapsed<4000,`Phase 10 audit took ${elapsed.toFixed(1)}ms`);
 });
