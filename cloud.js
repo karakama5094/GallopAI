@@ -53,7 +53,6 @@ function pathSet(raceId,horseKey=null,logId='current'){
   analysisTraining:mods.doc(db,...root,'analyses','training-statistics'),
   analysisFeatures:mods.doc(db,...root,'analyses','feature-statistics'),
   analysisOcr:mods.doc(db,...root,'analyses','ocr-statistics'),
-  analysisLog:mods.doc(db,...root,'analyses','calculation-log'),
   dictionary:mods.doc(db,...root,'metadata','feature-dictionary'),
   schema:mods.doc(db,...root,'metadata','schema')
  };
@@ -121,7 +120,6 @@ export async function saveCloudRace(race,analysis=null){
  if(research){
   batch.set(p.analysisQuality,clean({entityType:'Analysis',analysisType:'quality',...research.quality,updatedAt:now}),{merge:true});
   batch.set(p.analysisOcr,clean({entityType:'Analysis',analysisType:'ocr-statistics',...research.ocr,updatedAt:now}),{merge:true});
-  batch.set(p.analysisLog,clean({entityType:'Analysis',analysisType:'calculation-log',items:research.logs||[],updatedAt:now}),{merge:true});
   batch.set(p.dictionary,clean({version:summary.featureSchemaVersion,items:research.featureDictionary,updatedAt:now}),{merge:true});
   batch.set(p.schema,clean({dataModelVersion:CLOUD_DATA_MODEL_VERSION,featureSchemaVersion:summary.featureSchemaVersion,featureEngineVersion:summary.featureEngineVersion,horseStructure:['raw','features','quality','ocr','logs','versions'],compatibilityMirrors:['raw/current','features/current','quality/current','ocr/current','logs/current','logs/event_*'],updatedAt:now}),{merge:true});
  }
@@ -144,7 +142,15 @@ export async function saveGlobalResearchAnalysis(analysis,dictionary){
  await batch.commit();
 }
 
-export async function listCloudRaces(){ensure();const snap=await mods.getDocs(mods.collection(db,'users',user.uid,'races'));return snap.docs.map(d=>{const x=d.data();delete x.serverUpdatedAt;return x;}).sort((a,b)=>(b.meta?.date||'').localeCompare(a.meta?.date||''));}
+export async function saveResearchDashboardSummary(summary){
+ ensure();
+ const fields=['dashboardVersion','dataModelVersion','featureVersion','raceCount','horseCount','resultRegisteredHorseCount','numericFeatureCount','averageQualityScore','averageOcrConfidence','totalMissingCount','warningCount','errorCount','progressTo50','generatedAt','calculationTimeMs','sourceRaceIds','warnings'];
+ const payload=Object.fromEntries(fields.map(key=>[key,summary?.[key]??null]));
+ await mods.setDoc(globalPaths().status,clean(payload),{merge:true});
+ return payload;
+}
+
+export async function listCloudRaces(){ensure();const snap=await mods.getDocs(mods.collection(db,'users',user.uid,'races'));return snap.docs.map(d=>{const x=d.data();delete x.serverUpdatedAt;return{...x,raceId:d.id};}).sort((a,b)=>(b.meta?.date||'').localeCompare(a.meta?.date||''));}
 async function readHorses(id){
  const hs=await mods.getDocs(mods.collection(db,'users',user.uid,'races',id,'horses')),out=[];
  for(const d of hs.docs){
@@ -154,7 +160,7 @@ async function readHorses(id){
  }
  return out.sort((a,b)=>Number(a.number)-Number(b.number));
 }
-export async function getCloudRace(id){ensure();const snap=await mods.getDoc(pathSet(id).race);if(!snap.exists())return null;const x=snap.data();delete x.serverUpdatedAt;x.horses=await readHorses(id);x.counts=x.counts||{};x.counts.merged=x.horses.length;x.counts.preRaceComplete=x.horses.filter(h=>h.sourceStatus?.targetText&&h.sourceStatus?.training).length;x.counts.resultMatched=x.horses.filter(h=>h.result?.finish!=null).length;return x;}
+export async function getCloudRace(id){ensure();const snap=await mods.getDoc(pathSet(id).race);if(!snap.exists())return null;const x=snap.data();delete x.serverUpdatedAt;x.raceId=id;x.horses=await readHorses(id);x.counts=x.counts||{};x.counts.merged=x.horses.length;x.counts.preRaceComplete=x.horses.filter(h=>h.sourceStatus?.targetText&&h.sourceStatus?.training).length;x.counts.resultMatched=x.horses.filter(h=>h.result?.finish!=null).length;return x;}
 export async function loadResearchDataset(){ensure();const summaries=await listCloudRaces(),races=[];for(const s of summaries){const full=await getCloudRace(s.raceId);if(full)races.push(full);}return races;}
 
 async function deleteCollection(pathSegments){const snap=await mods.getDocs(mods.collection(db,...pathSegments));for(const d of snap.docs)await mods.deleteDoc(d.ref);}

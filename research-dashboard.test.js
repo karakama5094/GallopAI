@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildSchemaTypeAudit,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaRuntimeType,schemaStabilityCsv,schemaValuePreview,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses,buildMissingnessAudit,buildCoMissingness,buildMonthlyMissingness,missingnessClassification,filterMissingnessSummary,filterDependencyAudit,filterMissingnessIssues,missingnessSummaryCsv,missingnessPatternsCsv,coMissingnessCsv,dependencyAuditCsv,monthlyMissingnessCsv,missingnessIssuesCsv,MISSING_PATTERN_MAX_PATHS,MISSING_PATTERN_MAX_DISPLAY,CO_MISSINGNESS_MAX_FIELDS,MISSING_ISSUE_MESSAGE_MAX_LENGTH} from "./research-dashboard.js";
+import {readFile} from "node:fs/promises";
+import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildSchemaTypeAudit,buildVersionRecalculationAudit,buildProvenanceFreshnessAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,requiredSourcesFromDictionary,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaRuntimeType,schemaStabilityCsv,schemaValuePreview,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,stableSort,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,recalculationAuditCsv,buildFeatureCoverage,buildFeatureStability,coverageClass,featureCoverageCsv,featureStabilityWarnings,filterFeatureCoverage,buildMonthlyTrends,buildQualityDetails,buildRaceTrends,buildResearchDashboard,recalculateResearchDashboard,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,sortProblematicHorses,buildMissingnessAudit,buildCoMissingness,buildMonthlyMissingness,missingnessClassification,filterMissingnessSummary,filterDependencyAudit,filterMissingnessIssues,missingnessSummaryCsv,missingnessPatternsCsv,coMissingnessCsv,dependencyAuditCsv,monthlyMissingnessCsv,missingnessIssuesCsv,MISSING_PATTERN_MAX_PATHS,MISSING_PATTERN_MAX_DISPLAY,CO_MISSINGNESS_MAX_FIELDS,MISSING_ISSUE_MESSAGE_MAX_LENGTH} from "./research-dashboard.js";
 
 const horse=(overrides={})=>({
+  raw:{resultCsv:{finish:2}},
   features:{speed:10,finish_position:2},
   quality:{qualityScore:80,missingCount:2,warningCount:1,errorCount:0},
   ocr:{confidence:.8},
@@ -14,42 +16,144 @@ const horse=(overrides={})=>({
 test("aggregates every Phase 1 metric from canonical Horse root sections",()=>{
   const dashboard=buildResearchDashboard([
     {raceId:"r1",dataModelVersion:"race-fallback",horses:[
-      horse(),
+      horse({features:{speed:10},quality:{qualityScore:80,missingCount:2,validationStatus:"WARNING"}}),
       horse({
         features:{speed:12,power:4},
         quality:{qualityScore:100,missingCount:3,warningCount:0,errorCount:2},
-        ocr:{confidence:1},
+        ocr:{confidence:100},
+        raw:{},
         logs:{featureVersion:"features-2",updatedAt:"2026-02-01T00:00:00.000Z"}
       })
     ]}
   ]);
   assert.deepEqual(dashboard,{
+    dashboardVersion:"1.0.0",
+    dataModelVersion:"horse-3",
+    featureVersion:"features-2",
     raceCount:1,
     horseCount:2,
     resultRegisteredHorseCount:1,
-    numericFeatureCount:3,
+    numericFeatureCount:2,
     averageQualityScore:90,
-    averageOcrConfidence:.9,
+    averageOcrConfidence:90,
     totalMissingCount:5,
-    warningAndErrorCount:3,
+    warningCount:1,
+    errorCount:1,
     progressTo50:2,
-    dataModelVersion:"horse-3",
-    featureVersion:"features-2",
-    lastRecalculationTime:"2026-02-01T00:00:00.000Z",
+    generatedAt:null,
+    calculationTimeMs:null,
+    sourceRaceIds:["r1"],
+    warnings:[],
+    remainingRaces:49,
+    thresholdReached:false,
+    partialData:false,
+    lastRecalculationTime:null,
     showAiTrainingControls:false
   });
 });
 
 test("does not use summary-level quality or OCR fallbacks",()=>{
-  const dashboard=buildResearchDashboard([{raceId:"r1",quality:{qualityScore:1},ocr:{confidence:.1},horses:[horse({quality:{},ocr:{}})]}]);
+  const dashboard=buildResearchDashboard([{raceId:"r1",quality:{qualityScore:1},ocr:{confidence:.1},horses:[horse({quality:undefined,ocr:undefined})]}]);
   assert.equal(dashboard.averageQualityScore,null);
   assert.equal(dashboard.averageOcrConfidence,null);
+  assert.equal(dashboard.partialData,true);
+  assert.match(dashboard.warnings.join(" "),/canonical quality/);
+  assert.match(dashboard.warnings.join(" "),/canonical ocr/);
 });
 
-test("shows AI controls only at the 50-race threshold",()=>{
+test("continues when the canonical quality section is missing",()=>{
+  const dashboard=buildResearchDashboard([{raceId:"r1",horses:[horse({quality:undefined}),horse()]}]);
+  assert.equal(dashboard.horseCount,2);assert.equal(dashboard.averageQualityScore,80);
+  assert.match(dashboard.warnings.join(" "),/1頭で canonical quality/);
+});
+
+test("continues when the canonical OCR section is missing",()=>{
+  const dashboard=buildResearchDashboard([{raceId:"r1",horses:[horse({ocr:undefined}),horse()]}]);
+  assert.equal(dashboard.horseCount,2);assert.equal(dashboard.averageOcrConfidence,80);
+  assert.match(dashboard.warnings.join(" "),/1頭で canonical ocr/);
+});
+
+test("keeps AI controls disabled below and at the 50-race threshold",()=>{
   const races=Array.from({length:50},(_,index)=>({raceId:`r${index}`,horses:[]}));
-  assert.equal(buildResearchDashboard(races.slice(0,49)).showAiTrainingControls,false);
-  assert.equal(buildResearchDashboard(races).showAiTrainingControls,true);
+  const below=buildResearchDashboard(races.slice(0,49)),reached=buildResearchDashboard(races);
+  assert.equal(below.progressTo50,98);
+  assert.equal(below.remainingRaces,1);
+  assert.equal(below.showAiTrainingControls,false);
+  assert.equal(reached.progressTo50,100);
+  assert.equal(reached.thresholdReached,true);
+  assert.equal(reached.showAiTrainingControls,false);
+});
+
+test("returns an empty Phase 1 dashboard without invented values",()=>{
+  const dashboard=buildResearchDashboard([]);
+  assert.equal(dashboard.raceCount,0);assert.equal(dashboard.horseCount,0);
+  assert.equal(dashboard.averageQualityScore,null);assert.equal(dashboard.averageOcrConfidence,null);
+  assert.equal(dashboard.dataModelVersion,null);assert.equal(dashboard.featureVersion,null);
+  assert.deepEqual(dashboard.sourceRaceIds,[]);assert.deepEqual(dashboard.warnings,[]);
+});
+
+test("excludes strings, arrays, objects, NaN, and Infinity from numeric feature keys",()=>{
+  const dashboard=buildResearchDashboard([{raceId:"r1",horses:[horse({features:{valid:0,string:"1",array:[1],object:{value:1},nan:NaN,infinity:Infinity,nil:null}})]}]);
+  assert.equal(dashboard.numericFeatureCount,1);
+});
+
+test("normalizes mixed OCR confidence scales to a percentage before averaging",()=>{
+  const dashboard=buildResearchDashboard([{raceId:"r1",horses:[horse({ocr:{confidence:.8}}),horse({ocr:{confidence:60}}),horse({ocr:{confidence:101}})]}]);
+  assert.equal(dashboard.averageOcrConfidence,70);
+});
+
+test("counts warning and error horses once regardless of collection size",()=>{
+  const dashboard=buildResearchDashboard([{raceId:"r1",horses:[
+    horse({quality:{validationStatus:"WARNING",warning:["a","b"]}}),
+    horse({quality:{warnings:["a"]}}),
+    horse({quality:{validationStatus:"ERROR",errors:["a","b"]}}),
+    horse({quality:{validationErrors:["a"]}}),
+    horse({quality:{validationStatus:"PASS"}})
+  ]}]);
+  assert.equal(dashboard.warningCount,2);assert.equal(dashboard.errorCount,2);
+});
+
+test("deduplicates duplicate Race IDs and their Horse documents",()=>{
+  const dashboard=buildResearchDashboard([{raceId:"same",horses:[horse()]},{raceId:"same",horses:[horse(),horse()]}]);
+  assert.equal(dashboard.raceCount,1);assert.equal(dashboard.horseCount,1);
+  assert.deepEqual(dashboard.sourceRaceIds,["same"]);assert.match(dashboard.warnings[0],/重複Race ID/);
+});
+
+test("uses confirmed result data under canonical raw and ignores result-derived features",()=>{
+  const dashboard=buildResearchDashboard([{raceId:"r1",horses:[
+    horse({raw:{resultCsv:{finish:1}},features:{finish_position:1}}),
+    horse({raw:{},features:{finish_position:2}}),
+    horse({raw:{resultCsv:{finish:"3"}},features:{}})
+  ]}]);
+  assert.equal(dashboard.resultRegisteredHorseCount,1);
+});
+
+test("propagates Firestore read failure and does not save or timestamp",async()=>{
+  let saved=false,clockRead=false;
+  await assert.rejects(recalculateResearchDashboard({
+    loadRaces:async()=>{throw new Error("Firestore unavailable");},
+    saveSummary:async()=>{saved=true;},
+    now:()=>{clockRead=true;return new Date("2026-08-03T00:00:00.000Z");}
+  }),/Firestore unavailable/);
+  assert.equal(saved,false);assert.equal(clockRead,false);
+});
+
+test("timestamps only a successfully built and persisted dashboard summary",async()=>{
+  let persisted=null;const ticks=[10,12.5];
+  const {summary}=await recalculateResearchDashboard({
+    loadRaces:async()=>[{raceId:"r1",horses:[horse()]}],
+    saveSummary:async value=>{persisted=value;},
+    now:()=>new Date("2026-08-03T01:02:03.000Z"),timer:()=>ticks.shift()
+  });
+  assert.equal(summary.generatedAt,"2026-08-03T01:02:03.000Z");
+  assert.equal(summary.lastRecalculationTime,summary.generatedAt);
+  assert.equal(summary.calculationTimeMs,2.5);assert.equal(persisted,summary);
+});
+
+test("cloud runtime contains no obsolete calculation log reference",async()=>{
+  const source=await readFile(new URL("./cloud.js",import.meta.url),"utf8");
+  const camel=["calculation","Log"].join(""),hyphen=["calculation","-log"].join("");
+  assert.equal(source.includes(camel),false);assert.equal(source.includes(hyphen),false);
 });
 
 test("uses exact quality and OCR distribution boundaries and tracks missing OCR",()=>{
