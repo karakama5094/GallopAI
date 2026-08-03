@@ -124,7 +124,7 @@ function phase1Kpis(d){
     <div><b>${esc(recalculated)}</b><span>最終再計算時刻</span></div>
   </div>`;
 }
-function researchDashboardView(){
+function legacyResearchDashboardView(){
   const title=`<div class="page-title"><span>RESEARCH DASHBOARD ${RESEARCH_DASHBOARD_VERSION}</span><h2>研究ダッシュボード</h2><p>Horse ルートの canonical schema から集計します。機械学習は無効です。</p></div>`;
   if(state.researchStatus==="loading")return`${title}<div class="busy" role="status"><span class="spinner"></span>研究データを読み込んでいます…</div>`;
   if(state.researchStatus==="error")return`${title}<div class="error-box" role="alert"><b>研究データを読み込めませんでした。</b><br>${esc(state.researchError)}</div><button data-action="refresh-research-dashboard">再試行</button>`;
@@ -249,6 +249,22 @@ function researchDashboardView(){
   <section class="settings-card"><h3>データ整合性診断 (${diagnostics.length})</h3><div class="quality-filters"><label>severity<input id="diagSeverity" value="${esc(state.researchDiagnosticFilters.severity||"")}"></label><label>type<input id="diagType" value="${esc(state.researchDiagnosticFilters.type||"")}"></label><label>raceId<input id="diagRace" value="${esc(state.researchDiagnosticFilters.raceId||"")}"></label></div><div class="actions"><button data-action="apply-diagnostic-filters">適用</button><button data-action="diagnostics-csv">診断CSV</button></div>
   ${diagnostics.length?`<div class="quality-table"><table><thead><tr><th>severity</th><th>type</th><th>raceId</th><th>馬番</th><th>説明</th></tr></thead><tbody>${diagnostics.map(x=>`<tr><td>${esc(x.severity)}</td><td>${esc(x.type)}</td><td>${esc(x.raceId)}</td><td>${esc(x.horseNumber??"-")}</td><td>${esc(x.message)}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">条件に一致する診断はありません。</div>'}</section>`;
 }
+function researchDashboardView(){
+  const title=`<div class="page-title"><span>RESEARCH DASHBOARD ${RESEARCH_DASHBOARD_VERSION}</span><h2>研究ダッシュボード</h2><p>Horse ルートの canonical schema から集計します。機械学習は無効です。</p></div>`;
+  if(state.researchStatus==="loading")return`${title}<div class="busy" role="status"><span class="spinner"></span>研究データを読み込んでいます…</div>`;
+  if(state.researchStatus==="error")return`${title}<div class="error-box" role="alert"><b>研究データを読み込めませんでした。</b><br>${esc(state.researchError)}</div><button data-action="refresh-research-dashboard">再試行</button>`;
+  const races=state.cloud.user?state.researchRaces:Object.values(loadLocalRaces());
+  const dashboard=state.researchDashboardSummary||buildResearchDashboard(races);
+  const progress=`<div class="research-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${RESEARCH_RACE_TARGET}" aria-valuenow="${Math.min(dashboard.raceCount,RESEARCH_RACE_TARGET)}"><span style="width:${dashboard.progressTo50}%"></span></div>`;
+  const recalculation=state.cloud.user?'<div class="actions"><button class="primary" data-action="refresh-research-dashboard">Recalculate from Cloud</button></div>':"";
+  if(!races.length)return`${title}${phase1Kpis(dashboard)}${progress}<div class="empty"><h3>研究データがありません</h3><p>保存済みRace/Horseが0件です。機械学習は無効です。</p>${recalculation}</div>`;
+  const partial=dashboard.partialData?`<div class="notice partial-data" role="status"><b>一部データに欠損があります。</b><ul>${dashboard.warnings.map(warning=>`<li>${esc(warning)}</li>`).join("")}</ul></div>`:"";
+  const threshold=dashboard.thresholdReached
+    ?"最低蓄積基準に到達しました。学習前に別途検証フェーズが必要です。"
+    :`統計蓄積中です。残り ${dashboard.remainingRaces} レースです。`;
+  return`${title}${partial}${phase1Kpis(dashboard)}${progress}<div class="notice"><b>${dashboard.raceCount}/${RESEARCH_RACE_TARGET} レース</b><br>${threshold}<br>機械学習は無効です。AI学習ボタンは表示しません。</div>${recalculation}`;
+}
+
 function csvEscape(v){const s=String(v??"");return/[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function raceCsv(r){
   const head=["レースID","日付","競馬場","R","レース名","枠","馬番","馬名","性","年齢","騎手","斤量","ZI","過去指数","父","母父","急加速最高","最終1F","最終3F","調教短評","着順","人気","単勝","走破タイム","上り3F","PCI","通過","馬体重","増減"];
