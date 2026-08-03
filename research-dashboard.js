@@ -1,24 +1,10 @@
 export const RESEARCH_RACE_TARGET=50;
+export const RESEARCH_DASHBOARD_VERSION="1.0.0";
 
 const numeric=value=>value!==null&&value!==""&&Number.isFinite(Number(value));
 const number=value=>numeric(value)?Number(value):0;
 const average=values=>values.length?values.reduce((sum,value)=>sum+value,0)/values.length:null;
 const percentage=(count,total)=>total?Math.round(count/total*1000)/10:0;
-const timestamp=value=>{
-  if(!value)return null;
-  if(typeof value?.toDate==="function")return value.toDate().toISOString();
-  const date=new Date(value);
-  return Number.isNaN(date.getTime())?null:date.toISOString();
-};
-
-function lastRecalculation(horse){
-  const history=Array.isArray(horse.logs?.recalculateHistory)?horse.logs.recalculateHistory:[];
-  return [
-    horse.logs?.updatedAt,
-    horse.logs?.calculatedAt,
-    ...history.map(item=>item?.at)
-  ].map(timestamp).filter(Boolean).sort().at(-1)||null;
-}
 
 function distribution(items,total){
   return items.map(item=>({...item,percentage:percentage(item.count,total)}));
@@ -584,37 +570,115 @@ export function dependencyAuditCsv(rows=[]){return rowsCsv(["featureKey","displa
 export function monthlyMissingnessCsv(rows=[]){return rowsCsv(["month","horseCount","presentCount","usableCount","missingUnusableCount","missingnessPercentage","percentagePointDifference"],rows.map(r=>[r.monthLabel,r.horseCount,r.presentCount,r.usableCount,r.missingUnusableCount,r.missingnessPercentage,r.percentagePointDifference]));}
 export function missingnessIssuesCsv(rows=[]){return rowsCsv(["severity","type","section","fieldPath","featureKey","raceDate","raceName","raceId","horseNumber","horseName","classification","expectedSources","missingExpectedSources","message"],rows.map(r=>[r.severity,r.type,r.section,r.fieldPath,r.featureKey,r.raceDate||"日付不明",r.raceName,r.raceId,r.horseNumber,r.horseName,r.classification,r.expectedSources.join(" | "),r.missingExpectedSources.join(" | "),boundedMissingMessage(r.message)]));}
 
-export function buildResearchDashboard(races=[]){
-  const horses=races.flatMap(race=>(race.horses||[]).map(horse=>({race,horse})));
-  const qualityScores=horses.map(({horse})=>horse.quality?.qualityScore).filter(numeric).map(Number);
-  const ocrConfidences=horses.map(({horse})=>horse.ocr?.confidence).filter(numeric).map(Number);
-  const numericFeatures=new Set();
-  const versions={dataModel:[],feature:[]};
-  const recalculations=[];
+const phase1Number=value=>typeof value==="number"&&Number.isFinite(value);
+const phase1Object=value=>value!==null&&typeof value==="object"&&!Array.isArray(value);
+const phase1Collection=value=>Array.isArray(value)&&value.length>0;
+const validFinish=value=>phase1Number(value)&&Number.isInteger(value)&&value>0;
+const normalizeOcr=value=>!phase1Number(value)||value<0||value>100?null:value<=1?value*100:value;
+const measuredNow=()=>globalThis.performance?.now?.()??Date.now();
 
-  for(const {race,horse} of horses){
-    for(const [key,value] of Object.entries(horse.features||{}))if(numeric(value))numericFeatures.add(key);
-    versions.dataModel.push(horse.versions?.horse,race.dataModelVersion);
-    versions.feature.push(horse.logs?.featureVersion,horse.versions?.features,race.featureSchemaVersion,race.featureVersion);
-    const recalculatedAt=lastRecalculation(horse);
-    if(recalculatedAt)recalculations.push(recalculatedAt);
+function currentVersion(values){
+  const counts=new Map();
+  for(const value of values)if(typeof value==="string"&&value.trim())counts.set(value.trim(),(counts.get(value.trim())||0)+1);
+  return [...counts].sort((a,b)=>b[1]-a[1]||b[0].localeCompare(a[0],undefined,{numeric:true}))[0]?.[0]||null;
+}
+
+function warningPresent(quality){
+  if(!phase1Object(quality))return false;
+  if(String(quality.validationStatus||"").toUpperCase()==="WARNING")return true;
+  if(phase1Collection(quality.warning)||phase1Collection(quality.warnings))return true;
+  return Array.isArray(quality.issues)&&quality.issues.some(issue=>String(issue?.level||issue?.severity||"").toUpperCase()==="WARNING");
+}
+
+function errorPresent(quality){
+  if(!phase1Object(quality))return false;
+  if(String(quality.validationStatus||"").toUpperCase()==="ERROR")return true;
+  if(phase1Number(quality.errorCount)&&quality.errorCount>0)return true;
+  if(phase1Collection(quality.errors)||phase1Collection(quality.validationErrors))return true;
+  return Array.isArray(quality.issues)&&quality.issues.some(issue=>String(issue?.level||issue?.severity||"").toUpperCase()==="ERROR");
+}
+
+function confirmedFinish(horse){
+  const raw=horse.raw;
+  if(!phase1Object(raw))return null;
+  const result=phase1Object(raw.resultCsv)?raw.resultCsv:phase1Object(raw.merged?.result)?raw.merged.result:null;
+  if(!result)return null;
+  const finish=result.finish??result.finishPosition??result.position;
+  return validFinish(finish)?finish:null;
+}
+
+function canonicalRows(races,warnings){
+  const seenRaceIds=new Set(),rows=[],sourceRaceIds=[];
+  let invalidRaceCount=0,duplicateRaceCount=0,invalidHorseCount=0;
+  for(const race of Array.isArray(races)?races:[]){
+    if(!phase1Object(race)||typeof race.raceId!=="string"||!race.raceId.trim()){invalidRaceCount++;continue;}
+    const raceId=race.raceId.trim();
+    if(seenRaceIds.has(raceId)){duplicateRaceCount++;continue;}
+    seenRaceIds.add(raceId);sourceRaceIds.push(raceId);
+    for(const horse of Array.isArray(race.horses)?race.horses:[]){
+      if(!phase1Object(horse)){invalidHorseCount++;continue;}
+      rows.push({raceId,horse});
+    }
+  }
+  if(invalidRaceCount)warnings.push(`${invalidRaceCount}件のRaceをraceId欠損または不正形式のため除外しました。`);
+  if(duplicateRaceCount)warnings.push(`${duplicateRaceCount}件の重複Race IDを集計から除外しました。`);
+  if(invalidHorseCount)warnings.push(`${invalidHorseCount}件の不正なHorseドキュメントを集計から除外しました。`);
+  return{rows,sourceRaceIds};
+}
+
+export function buildResearchDashboard(races=[]){
+  const warnings=[],{rows,sourceRaceIds}=canonicalRows(races,warnings),numericFeatures=new Set(),qualityScores=[],ocrConfidences=[],dataVersions=[],featureVersions=[];
+  const missingSections=Object.fromEntries(["raw","features","quality","ocr","logs","versions"].map(section=>[section,0]));
+  let resultRegisteredHorseCount=0,totalMissingCount=0,warningCount=0,errorCount=0;
+
+  for(const {horse} of rows){
+    for(const section of Object.keys(missingSections))if(!phase1Object(horse[section]))missingSections[section]++;
+    if(phase1Object(horse.features))for(const [key,value] of Object.entries(horse.features))if(phase1Number(value))numericFeatures.add(key);
+    if(phase1Number(horse.quality?.qualityScore))qualityScores.push(horse.quality.qualityScore);
+    const confidence=normalizeOcr(horse.ocr?.confidence);if(confidence!==null)ocrConfidences.push(confidence);
+    if(phase1Number(horse.quality?.missingCount))totalMissingCount+=horse.quality.missingCount;
+    if(warningPresent(horse.quality))warningCount++;
+    if(errorPresent(horse.quality))errorCount++;
+    if(confirmedFinish(horse)!==null)resultRegisteredHorseCount++;
+    dataVersions.push(horse.versions?.dataModelVersion??horse.versions?.horse);
+    featureVersions.push(horse.versions?.featureVersion??horse.versions?.features??horse.logs?.featureVersion);
   }
 
-  const raceIds=new Set(races.map((race,index)=>race.raceId||`race-${index}`));
-  const raceCount=raceIds.size;
+  for(const [section,count] of Object.entries(missingSections))if(count)warnings.push(`${count}頭で canonical ${section} セクションが欠損しています。`);
+  if(rows.length&&!qualityScores.length)warnings.push("有効な quality.qualityScore がありません。");
+  if(rows.length&&!ocrConfidences.length)warnings.push("有効な ocr.confidence がありません。");
+  const raceCount=sourceRaceIds.length,progressTo50=Math.min(100,Math.round(raceCount/RESEARCH_RACE_TARGET*100));
   return{
+    dashboardVersion:RESEARCH_DASHBOARD_VERSION,
+    dataModelVersion:currentVersion(dataVersions),
+    featureVersion:currentVersion(featureVersions),
     raceCount,
-    horseCount:horses.length,
-    resultRegisteredHorseCount:horses.filter(({horse})=>numeric(horse.features?.finish_position??horse.raw?.resultCsv?.finish??horse.raw?.result?.finish??horse.result?.finish)).length,
+    horseCount:rows.length,
+    resultRegisteredHorseCount,
     numericFeatureCount:numericFeatures.size,
     averageQualityScore:average(qualityScores),
     averageOcrConfidence:average(ocrConfidences),
-    totalMissingCount:horses.reduce((sum,{horse})=>sum+number(horse.quality?.missingCount),0),
-    warningAndErrorCount:horses.reduce((sum,{horse})=>sum+number(horse.quality?.warningCount??horse.quality?.warning?.length)+number(horse.quality?.errorCount),0),
-    progressTo50:Math.min(100,Math.round(raceCount/RESEARCH_RACE_TARGET*100)),
-    dataModelVersion:versions.dataModel.find(Boolean)||"-",
-    featureVersion:versions.feature.find(Boolean)||"-",
-    lastRecalculationTime:recalculations.sort().at(-1)||null,
-    showAiTrainingControls:raceCount>=RESEARCH_RACE_TARGET
+    totalMissingCount,
+    warningCount,
+    errorCount,
+    progressTo50,
+    generatedAt:null,
+    calculationTimeMs:null,
+    sourceRaceIds,
+    warnings,
+    remainingRaces:Math.max(0,RESEARCH_RACE_TARGET-raceCount),
+    thresholdReached:raceCount>=RESEARCH_RACE_TARGET,
+    partialData:warnings.length>0,
+    lastRecalculationTime:null,
+    showAiTrainingControls:false
   };
+}
+
+export async function recalculateResearchDashboard({loadRaces,saveSummary,now=()=>new Date(),timer=measuredNow}){
+  if(typeof loadRaces!=="function"||typeof saveSummary!=="function")throw new TypeError("loadRaces and saveSummary are required");
+  const started=timer(),races=await loadRaces(),dashboard=buildResearchDashboard(races);
+  const generatedAt=now().toISOString(),calculationTimeMs=Math.max(0,Math.round((timer()-started)*1000)/1000);
+  const summary={...dashboard,generatedAt,calculationTimeMs,lastRecalculationTime:generatedAt};
+  await saveSummary(summary);
+  return{races,summary};
 }
