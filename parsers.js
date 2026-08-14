@@ -105,6 +105,27 @@ export function parseTargetEntryText(text,filename=""){
   return {filename,meta,horses,count:horses.length};
 }
 
+export function parseTargetEntryPdfText(text,filename=""){
+  const n=String(text||"").normalize("NFKC"),lines=n.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),meta=parseRaceMeta(n),horses=[];
+  for(let i=0;i<lines.length;i++){
+    const header=lines[i].match(/^(.+?)\s+(牡|牝|セ)(\d+)\s+(?:鹿|黒鹿|青鹿|栗|芦|鹿毛|青毛|栗毛|芦毛)?/);
+    if(!header||header[1].length<2)continue;
+    const horseLine=lines[i+1]||"",horseName=(horseLine.match(/^([^\s]+)\s+/)||[])[1];
+    if(!horseName||/^(能力表|出馬表|成績欄|レイデオロ|ディープインパクト|キズナ|ゴールドシップ|スワーヴリチャード|リオンディーズ|アルアイン|エピファネイア|シユーニ)$/.test(horseName))continue;
+    let number=null,waku=null,jockey="",weight=null;
+    for(const line of lines.slice(i+1,i+8)){
+      if(line.match(/^(.+?)\s+(牡|牝|セ)(\d+)\s+/))break;
+      const num=line.match(/^(\d)\s+(\d{1,2})\s/);
+      if(num){waku=Number(num[1]);number=Number(num[2]);}
+      const wt=line.match(/\b(\d{2,3})\b/); if(!weight&&wt)weight=Number(wt[1]);
+    }
+    if(number==null||horses.some(h=>h.number===number))continue;
+    horses.push({waku,number,name:horseName,sex:header[2],age:Number(header[3]),jockey,weight,source:"entry-pdf"});
+  }
+  if(horses.length<1)throw new Error("出走表PDFから馬情報を認識できませんでした。テキスト選択可能なPDFか確認してください。");
+  return {filename,meta,horses,count:horses.length,pdf:true};
+}
+
 export const COURSE_TABLE={
  "旧美坂":{correction:.5,axisFurlong:4,axisBorder:54.7,keshiBorder:13.0},"新美坂":{correction:.6,axisFurlong:4,axisBorder:55.0,keshiBorder:13.1},
  "栗坂":{correction:.5,axisFurlong:4,axisBorder:54.3,keshiBorder:12.7},"美浦W":{correction:-.6,axisFurlong:5,axisBorder:68.5,keshiBorder:12.1},
