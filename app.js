@@ -1,4 +1,4 @@
-import {decodeJapaneseFile,parseTargetEntryCsv,parseTargetEntryText,parseTargetEntryPdfText,parseTargetResultCsv,parseTrainingText,COURSE_TABLE} from "./parsers.js";
+import {decodeJapaneseFile,parseTargetEntryCsv,parseTargetEntryText,parseTargetEntryPdfText,parseTargetResultCsv,parseTargetResultPdfText,parseTrainingText,COURSE_TABLE} from "./parsers.js";
 import {mergeSources,acceleration} from "./engine.js";
 import {buildResearchPackage,featureDictionary,FEATURE_SCHEMA_VERSION,FEATURE_ENGINE_VERSION,MIN_RACES_FOR_ML} from "./feature-store.js";
 import {loadLocalRaces,saveLocalRace,deleteLocalRace,loadWorkspace,saveWorkspace,clearWorkspace,loadSettings,saveSettings,importLocalBackup} from "./local-storage.js";
@@ -7,7 +7,7 @@ import {buildResearchAnalysis,formatPercent} from "./analysis-engine.js";
 import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildProvenanceFreshnessAudit,buildSchemaTypeAudit,buildVersionRecalculationAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,recalculationAuditCsv,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaStabilityCsv,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,buildFeatureCoverage,buildFeatureStability,coverageClassSummary,featureCoverageCsv,featureStabilityCsv,featureStabilityWarnings,featureWarningsCsv,filterFeatureCoverage,buildResearchDashboard,recalculateResearchDashboard,buildQualityDetails,buildRaceTrends,buildMonthlyTrends,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,RESEARCH_DASHBOARD_VERSION,RESEARCH_RACE_TARGET,buildMissingnessAudit,buildCoMissingness,buildMonthlyMissingness,filterMissingnessSummary,filterDependencyAudit,filterMissingnessIssues,missingnessSummaryCsv,missingnessPatternsCsv,coMissingnessCsv,dependencyAuditCsv,monthlyMissingnessCsv,missingnessIssuesCsv,MISSING_PATTERN_MAX_PATHS,MISSING_PATTERN_MAX_DISPLAY,CO_MISSINGNESS_MAX_FIELDS,MISSING_ISSUE_MESSAGE_MAX_LENGTH} from "./research-dashboard.js";
 
 const WAKU={1:"#f7f5f0",2:"#343434",3:"#d93b2b",4:"#1e5fc4",5:"#f2c230",6:"#2f8f3e",7:"#f0821e",8:"#f0a8c4"};
-const labels={targetText:"出走表PDF",training:"競馬ブック調教PDF",entryCsv:"TARGET出馬表CSV（任意）",resultCsv:"TARGET結果CSV（レース後）"};
+const labels={targetText:"出走表PDF",training:"競馬ブック調教PDF",entryCsv:"TARGET出馬表CSV（任意）",resultCsv:"レース結果PDF（レース後）"};
 const state={view:"import",sources:{targetText:null,training:null,entryCsv:null,resultCsv:null},merged:null,selected:null,sort:"number",error:"",busy:"",toast:"",settings:loadSettings(COURSE_TABLE),cloud:{configured:cloudIsConfigured(),status:"loading",user:null,error:""},cloudRaces:[],researchRaces:[],researchAnalysis:null,researchDashboardSummary:null,researchV34:null,researchFilters:{},researchQualityFilters:{issuesOnly:true},researchFeatureFilters:{},researchDiagnosticFilters:{},researchVersionFilters:{},researchVersionPage:1,researchProvenanceFilters:{},researchProvenancePage:1,researchProvenancePageSize:50,researchSchemaFilters:{},researchSchemaPage:1,researchSchemaPageSize:50,researchSchemaField:"",researchMissingFilters:{issuesOnly:true},researchMissingPage:1,researchMissingPageSize:50,researchMissingField:"",researchCoMissingFields:[],selectedFeature:"",researchPeriods:{},researchPeriodTouched:false,researchStatus:"idle",researchError:"",library:"cloud",search:""};
 const detailRenderGeneration=createRenderGeneration();
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -36,7 +36,8 @@ async function importFile(slot,file){
   try{
     if(slot==="training"){const extracted=await extractPdfText(file);state.sources[slot]=parseTrainingText(extracted.text,file.name);state.sources[slot].pdfMeta=extracted.meta;}
     else if(slot==="targetText"){const extracted=await extractPdfText(file);state.sources[slot]=parseTargetEntryPdfText(extracted.text,file.name);state.sources[slot].pdfMeta=extracted.meta;}
-    else{const text=await decodeJapaneseFile(file);state.sources[slot]=slot==="entryCsv"?parseTargetEntryCsv(text,file.name):parseTargetResultCsv(text,file.name);}
+    else if(slot==="resultCsv"){const extracted=await extractPdfText(file);state.sources[slot]=parseTargetResultPdfText(extracted.text,file.name);state.sources[slot].pdfMeta=extracted.meta;}
+    else{const text=await decodeJapaneseFile(file);state.sources[slot]=parseTargetEntryCsv(text,file.name);}
     rebuild();persist();
   }catch(e){state.error=`${labels[slot]}: ${e.message}`;}
   state.busy="";render();
@@ -49,7 +50,7 @@ function sourceCard(key,accept,desc,step){
 }
 function importView(){
   return `<div class="page-title"><span>PC DATA IMPORT</span><h2>PCで登録、iPhoneで閲覧</h2><p>出走表PDFと調教PDFがレース前の必須データです。</p></div>
-  <div class="source-grid">${sourceCard("targetText",".pdf,application/pdf","枠・馬番・馬名・性齢・斤量・出走情報",1)}${sourceCard("training",".pdf,application/pdf","調教履歴・短評・急加速力",2)}${sourceCard("entryCsv",".csv,text/csv","当日オッズ・人気・馬体重の更新",3)}${sourceCard("resultCsv",".csv,text/csv","着順・確定オッズ・上がり3F",4)}</div>
+  <div class="source-grid">${sourceCard("targetText",".pdf,application/pdf","枠・馬番・馬名・性齢・斤量・出走情報",1)}${sourceCard("training",".pdf,application/pdf","調教履歴・短評・急加速力",2)}${sourceCard("entryCsv",".csv,text/csv","当日オッズ・人気・馬体重の更新",3)}${sourceCard("resultCsv",".pdf,application/pdf","着順・確定オッズ・上がり3F",4)}</div>
   <div class="actions"><button data-action="sample">有馬記念サンプルを開く</button><button class="ghost danger" data-action="clear">読込データを消去</button></div>
   ${state.busy?`<div class="busy"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box">${esc(state.error)}</div>`:""}${state.merged?mergePanel():""}`;
 }
