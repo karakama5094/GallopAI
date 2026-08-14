@@ -73,6 +73,21 @@ export function parseTargetResultCsv(text,filename=""){
   return {filename,horses,count:horses.length,columns:header};
 }
 
+export function parseTargetResultPdfText(text,filename=""){
+  const n=String(text||"").normalize("NFKC"),lines=n.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),meta=parseRaceMeta(n),horses=[];
+  for(let i=0;i<lines.length-4;i++){
+    const name=lines[i],weightLine=lines[i+1],timeLine=lines[i+2],detail=lines[i+3],result=lines[i+4];
+    if(!name||/^(レース結果|着順|馬名|払戻金|ラップタイム|インタビュー|中央競馬Top)/.test(name))continue;
+    const time=timeLine.match(/^\d{1,2}(?:\.\d+){2}$/),body=weightLine.match(/^(\d{3})(?:\(([+-]?\d+)\))?$/),sex=detail.match(/^(牡|牝|セ)(\d+)\s+(.+?)\s+(\d+(?:\.\d+)?)$/),place=result.match(/^(\d{1,2})\s+(\d{1,2})\s+([\d.]+)$/);
+    if(!time||!body||!sex||!place||horses.some(h=>h.number===Number(place[2])))continue;
+    const after=lines[i+5]||"",last3f=(after.match(/^\(([\d.]+)\)$/)||[])[1]||null;
+    const odds=Number(place[3]),next=lines[i+6]||"",pop=(next.match(/(\d{1,2})人気/)||[])[1];
+    horses.push({finish:Number(place[1]),number:Number(place[2]),name,time:time[0],bodyWeight:Number(body[1]),bodyWeightDelta:body[2]?Number(body[2]):0,sex:sex[1],age:Number(sex[2]),jockey:sex[3],weight:Number(sex[4]),last3f:last3f?Number(last3f):null,odds,popularity:pop?Number(pop):null,source:"result-pdf"});
+  }
+  if(!horses.length)throw new Error("レース結果PDFから結果情報を認識できませんでした。テキスト選択可能なPDFか確認してください。");
+  return {filename,meta,horses,count:horses.length,pdf:true};
+}
+
 function parseRaceMeta(text){
   const n=text.normalize("NFKC"),date=n.match(DATE_JP_RE);
   const first=n.split(/\r?\n/)[0]||"",venue=first.match(/\d+回([^\d\s]+)\d+日目/);
