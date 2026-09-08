@@ -1,4 +1,5 @@
-import {decodeJapaneseFile,parseTargetEntryCsv,parseTargetEntryText,parseTargetEntryPdfText,parseTargetResultCsv,parseTargetResultPdfText,parseTrainingText,COURSE_TABLE} from "./parsers.js";
+import {COURSE_TABLE} from "./parsers.js";
+import {importPdf,validateSourceRace,sourcesFromRace,canSaveRace} from "./pdf-import.js";
 import {mergeSources,acceleration} from "./engine.js";
 import {buildResearchPackage,featureDictionary,FEATURE_SCHEMA_VERSION,FEATURE_ENGINE_VERSION,MIN_RACES_FOR_ML} from "./feature-store.js";
 import {loadLocalRaces,saveLocalRace,deleteLocalRace,loadWorkspace,saveWorkspace,clearWorkspace,loadSettings,saveSettings,importLocalBackup} from "./local-storage.js";
@@ -7,38 +8,30 @@ import {buildResearchAnalysis,formatPercent} from "./analysis-engine.js";
 import {buildCanonicalResearchModel,buildConsistencyDiagnostics,buildProvenanceFreshnessAudit,buildSchemaTypeAudit,buildVersionRecalculationAudit,createRenderGeneration,diagnosticsCsv,filterDiagnostics,filterProvenanceIssues,filterSchemaInventory,filterSchemaIssues,filterVersionAuditIssues,freshnessSummaryCsv,paginate,provenanceIssuesCsv,provenanceRaceCsv,recalculationAuditCsv,schemaConformanceCsv,schemaInventoryCsv,schemaIssuesCsv,schemaStabilityCsv,SCHEMA_AUDIT_MAX_DEPTH,SCHEMA_VALUE_PREVIEW_MAX_LENGTH,sourceCoverageCsv,versionAuditIssuesCsv,versionDistributionCsv,versionMatrixCsv,buildFeatureCoverage,buildFeatureStability,coverageClassSummary,featureCoverageCsv,featureStabilityCsv,featureStabilityWarnings,featureWarningsCsv,filterFeatureCoverage,buildResearchDashboard,recalculateResearchDashboard,buildQualityDetails,buildRaceTrends,buildMonthlyTrends,comparePeriods,filterProblematicHorses,monthlyTrendsCsv,periodComparisonCsv,problematicHorsesCsv,raceTrendsCsv,RESEARCH_DASHBOARD_VERSION,RESEARCH_RACE_TARGET,buildMissingnessAudit,buildCoMissingness,buildMonthlyMissingness,filterMissingnessSummary,filterDependencyAudit,filterMissingnessIssues,missingnessSummaryCsv,missingnessPatternsCsv,coMissingnessCsv,dependencyAuditCsv,monthlyMissingnessCsv,missingnessIssuesCsv,MISSING_PATTERN_MAX_PATHS,MISSING_PATTERN_MAX_DISPLAY,CO_MISSINGNESS_MAX_FIELDS,MISSING_ISSUE_MESSAGE_MAX_LENGTH} from "./research-dashboard.js";
 
 const WAKU={1:"#f7f5f0",2:"#343434",3:"#d93b2b",4:"#1e5fc4",5:"#f2c230",6:"#2f8f3e",7:"#f0821e",8:"#f0a8c4"};
-const labels={targetText:"出走表PDF",training:"競馬ブック調教PDF",entryCsv:"TARGET出馬表CSV（任意）",resultCsv:"レース結果PDF（レース後）"};
+const labels={targetText:"競馬ブック出走表PDF",training:"競馬ブック調教PDF",resultCsv:"競馬ブック結果PDF"};
 const state={view:"import",sources:{targetText:null,training:null,entryCsv:null,resultCsv:null},merged:null,selected:null,sort:"number",error:"",busy:"",toast:"",settings:loadSettings(COURSE_TABLE),cloud:{configured:cloudIsConfigured(),status:"loading",user:null,error:""},cloudRaces:[],researchRaces:[],researchAnalysis:null,researchDashboardSummary:null,researchV34:null,researchFilters:{},researchQualityFilters:{issuesOnly:true},researchFeatureFilters:{},researchDiagnosticFilters:{},researchVersionFilters:{},researchVersionPage:1,researchProvenanceFilters:{},researchProvenancePage:1,researchProvenancePageSize:50,researchSchemaFilters:{},researchSchemaPage:1,researchSchemaPageSize:50,researchSchemaField:"",researchMissingFilters:{issuesOnly:true},researchMissingPage:1,researchMissingPageSize:50,researchMissingField:"",researchCoMissingFields:[],selectedFeature:"",researchPeriods:{},researchPeriodTouched:false,researchStatus:"idle",researchError:"",library:"cloud",search:""};
 const detailRenderGeneration=createRenderGeneration();
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=(v,d=1)=>v==null||Number.isNaN(v)?"-":Number(v).toFixed(d);
 const sourceRequired={targetText:true,training:true,entryCsv:false,resultCsv:false};
 
-async function extractPdfText(file){
-  if(!window.pdfjsLib)throw new Error("PDF解析ライブラリを読み込めませんでした。");
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc="./pdf.worker.min.js";
-  const pdf=await window.pdfjsLib.getDocument({data:await file.arrayBuffer(),cMapUrl:"./cmaps/",cMapPacked:true}).promise;
-  let text="";
-  for(let p=1;p<=pdf.numPages;p++){
-    const page=await pdf.getPage(p),content=await page.getTextContent();let lastY=null,line="";
-    for(const item of content.items){const y=item.transform[5];if(lastY!==null&&Math.abs(y-lastY)>2){text+=line.trim()+"\n";line="";}line+=item.str;lastY=y;}text+=line.trim()+"\n";
-  }
-  const normalized=text.normalize("NFKC");
-  return {text:normalized,meta:{pdfPages:pdf.numPages,textLength:normalized.length,method:"pdfjs-text-extraction",extractedAt:new Date().toISOString()}};
-}
-function restore(){const w=loadWorkspace();if(w?.sources){state.sources=w.sources;rebuild();}}
+function restore(){const w=loadWorkspace();if(w?.sources){state.sources={...state.sources,...w.sources,entryCsv:null};rebuild();}}
 function persist(){saveWorkspace({sources:state.sources});}
 function attachResearch(race,previous=null){const research=buildResearchPackage(race,state.settings,previous);race.researchPackage=research;race.quality=research.quality;race.ocr=research.ocr;race.featureSchemaVersion=FEATURE_SCHEMA_VERSION;race.featureEngineVersion=FEATURE_ENGINE_VERSION;race.dataModelVersion=CLOUD_DATA_MODEL_VERSION;race.horses=research.horses.map(p=>({...p.raw.merged,raw:p.raw,features:p.features,featureMeta:p.featureMeta,quality:p.quality,ocr:p.ocr,logs:p.logs,versions:p.versions}));return race;}
 function rebuild(){try{state.merged=attachResearch(mergeSources(state.sources,state.settings),state.merged?.researchPackage);state.error="";}catch(e){state.error=e.message;}}
 function toast(m){state.toast=m;render();setTimeout(()=>{state.toast="";render();},1900);}
 async function importFile(slot,file){
+  if(state.busy)return;
   state.busy=`${labels[slot]}を解析中`;state.error="";render();
   try{
-    if(slot==="training"){const extracted=await extractPdfText(file);state.sources[slot]=parseTrainingText(extracted.text,file.name);state.sources[slot].pdfMeta=extracted.meta;}
-    else if(slot==="targetText"){const extracted=await extractPdfText(file);state.sources[slot]=parseTargetEntryPdfText(extracted.text,file.name);state.sources[slot].pdfMeta=extracted.meta;}
-    else if(slot==="resultCsv"){const extracted=await extractPdfText(file);state.sources[slot]=parseTargetResultPdfText(extracted.text,file.name);state.sources[slot].pdfMeta=extracted.meta;}
-    else{const text=await decodeJapaneseFile(file);state.sources[slot]=parseTargetEntryCsv(text,file.name);}
-    rebuild();persist();
+    const source=await importPdf(file,slot,window.pdfjsLib,(page,total)=>{state.busy=`${labels[slot]}を読込中 ${page}/${total}ページ`;render();});
+    validateSourceRace(state.sources,slot,source);
+    const sources={...state.sources,[slot]:source,entryCsv:null};
+    const merged=attachResearch(mergeSources(sources,state.settings),state.merged?.researchPackage);
+    const mismatch=merged.diagnostics.find(d=>d.level==='error');
+    if(mismatch)throw new Error(mismatch.message+'。同じレースのPDFを確認してください。');
+    state.sources=sources;state.merged=merged;
+    try{persist();}catch{state.error='読み込みは完了しましたが、この端末の空き容量が不足しています。クラウド保存してください。';}
   }catch(e){state.error=`${labels[slot]}: ${e.message}`;}
   state.busy="";render();
 }
@@ -46,35 +39,36 @@ async function loadSample(){state.busy="有馬記念サンプルを読込中";re
 
 function sourceCard(key,accept,desc,step){
   const d=state.sources[key],required=sourceRequired[key];
-  return `<section class="source-card ${d?"loaded":""}"><div class="source-head"><div><span class="step">${step}</span><strong>${labels[key]}</strong><em class="${required?"required":"optional"}">${required?"必須":"任意"}</em></div><span class="status ${d?"ok":""}">${d?`${d.count}頭`:"未読込"}</span></div><p>${desc}</p>${d?`<div class="filename">${esc(d.filename)}</div>`:""}<label class="file-button">${d?"差し替える":"ファイルを選択"}<input type="file" data-file="${key}" accept="${accept}"></label></section>`;
+  return `<section class="source-card ${d?"loaded":""}"><div class="source-head"><div><span class="step">${step}</span><strong>${labels[key]}</strong><em class="${required?"required":"optional"}">${required?"必須":"任意"}</em></div><span class="status ${d?"ok":""}">${d?`${d.count}頭`:"未読込"}</span></div><p>${desc}</p>${d?`<div class="filename">${esc(d.filename)}</div>`:""}<label class="file-button">${d?"PDFを差し替える":"PDFを添付"}<input type="file" data-file="${key}" accept="${accept}" aria-label="${labels[key]}を添付" ${state.busy?"disabled":""}></label></section>`;
 }
 function importView(){
-  return `<div class="page-title"><span>PC DATA IMPORT</span><h2>PCで登録、iPhoneで閲覧</h2><p>出走表PDFと調教PDFがレース前の必須データです。</p></div>
-  <div class="source-grid">${sourceCard("targetText",".pdf,application/pdf","枠・馬番・馬名・性齢・斤量・出走情報",1)}${sourceCard("training",".pdf,application/pdf","調教履歴・短評・急加速力",2)}${sourceCard("entryCsv",".csv,text/csv","当日オッズ・人気・馬体重の更新",3)}${sourceCard("resultCsv",".pdf,application/pdf","着順・確定オッズ・上がり3F",4)}</div>
-  <div class="actions"><button data-action="sample">有馬記念サンプルを開く</button><button class="ghost danger" data-action="clear">読込データを消去</button></div>
-  ${state.busy?`<div class="busy"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box">${esc(state.error)}</div>`:""}${state.merged?mergePanel():""}`;
+  return `<div class="page-title"><span>PDF IMPORT</span><h2>iPhoneで登録、iPhoneで閲覧</h2><p>競馬ブックのPDFを3種類添付するだけ。出走表・調教はレース前、結果はレース後に登録できます。</p></div>
+  <details class="pdf-help"><summary>iPhoneでPDFを用意する方法</summary><ol><li>Safariで競馬ブックの「能力表（HTML）」「調教」「レース結果」をそれぞれ開きます。</li><li>共有 → プリント → 印刷プレビューを2本指で広げる → 共有 →「ファイルに保存」を選びます。</li><li>下の「PDFを添付」から、同じレースのPDFを選びます。</li></ol><p>文字を選択できるPDFに対応。写真・スキャンPDFは読み取れません。1ファイル40MBまで。読み込み処理は端末内で行います。</p></details>
+  <div class="source-grid">${sourceCard("targetText",".pdf,application/pdf","能力表HTMLのPDF。馬番・馬名・性齢・斤量・騎手・血統を取り込みます。",1)}${sourceCard("training",".pdf,application/pdf","調教時計・追い方・短評を取り込み、出走馬に照合します。",2)}${sourceCard("resultCsv",".pdf,application/pdf","レース後に添付。着順・タイム・上がり・人気・オッズ・馬体重を追加します。",3)}</div>
+  <div class="actions"><button class="ghost" data-action="clear">新しいレース</button></div>
+  ${state.merged?mergePanel():""}`;
 }
 function mergePanel(){
   const m=state.merged,err=m.diagnostics.filter(x=>x.level==="error").length,warn=m.diagnostics.filter(x=>x.level==="warning").length;
-  return `<section class="merge-panel"><div class="merge-title"><div><span>MERGE STATUS</span><h3>${esc(m.meta.raceName||m.raceId)}</h3><p>${esc(m.meta.date)} ${esc(m.meta.venue)} ${m.meta.raceNo||"-"}R</p></div><div class="merge-score">${m.counts.preRaceComplete}<small>/${m.counts.merged}</small></div></div>
-  <div class="count-grid"><div><b>${m.counts.targetText}</b><span>出馬表TXT</span></div><div><b>${m.counts.training}</b><span>調教PDF</span></div><div><b>${m.counts.entryCsv}</b><span>任意CSV</span></div><div><b>${m.counts.resultCsv}</b><span>結果CSV</span></div></div>
+  return `<section class="merge-panel"><p class="hint">出走表と調教が全頭そろったら保存できます。クラウド保存すると、同じGoogleアカウントでほかの端末からも閲覧できます。保存対象はPDFから読み取ったデータです。</p><div class="merge-title"><div><span>MERGE STATUS</span><h3>${esc(m.meta.raceName||m.raceId)}</h3><p>${esc(m.meta.date)} ${esc(m.meta.venue)} ${m.meta.raceNo||"-"}R</p></div><div class="merge-score">${m.counts.preRaceComplete}<small>/${m.counts.merged}</small></div></div>
+  <div class="count-grid"><div><b>${m.counts.targetText}</b><span>出走表PDF</span></div><div><b>${m.counts.training}</b><span>調教PDF</span></div><div><b>${m.counts.resultCsv}</b><span>結果PDF</span></div></div>
   <div class="diag-summary"><span class="pill ${err?"bad":"good"}">エラー ${err}</span><span class="pill ${warn?"warn":"good"}">警告 ${warn}</span><span class="pill good">レース前結合 ${m.counts.preRaceComplete}頭</span></div>
   ${m.diagnostics.length?`<details><summary>照合結果</summary><ul class="diagnostics">${m.diagnostics.map(d=>`<li class="${d.level}">${d.number?d.number+"番 ":""}${esc(d.message)}</li>`).join("")}</ul></details>`:""}
-  <div class="diag-summary"><span class="pill good">特徴量 ${m.horses?.[0]?.features?Object.keys(m.horses[0].features).length:0}項目/馬</span><span class="pill ${m.quality?.validationStatus==="ERROR"?"bad":m.quality?.validationStatus==="WARNING"?"warn":"good"}">品質 ${m.quality?.qualityScore??"-"}点</span><span class="pill good">OCR/解析 ${m.quality?.ocrConfidence!=null?Math.round(m.quality.ocrConfidence*100):"-"}%</span></div><div class="actions"><button class="primary" data-action="integrated">統合画面</button><button data-action="cloud-save" ${!state.cloud.user||m.counts.preRaceComplete===0?"disabled":""}>クラウド保存</button><button data-action="local-save" ${m.counts.preRaceComplete===0?"disabled":""}>端末保存</button><button data-action="csv-current">CSV</button><button data-action="json-current">JSON</button></div></section>`;
+  <div class="diag-summary"><span class="pill good">特徴量 ${m.horses?.[0]?.features?Object.keys(m.horses[0].features).length:0}項目/馬</span><span class="pill ${m.quality?.validationStatus==="ERROR"?"bad":m.quality?.validationStatus==="WARNING"?"warn":"good"}">品質 ${m.quality?.qualityScore??"-"}点</span><span class="pill good">OCR/解析 ${m.quality?.ocrConfidence!=null?Math.round(m.quality.ocrConfidence*100):"-"}%</span></div><div class="actions"><button class="primary" data-action="integrated">統合画面</button><button data-action="cloud-save" ${!state.cloud.user||!canSaveRace(m)?"disabled":""}>クラウド保存</button><button data-action="local-save" ${!canSaveRace(m)?"disabled":""}>端末保存</button><button data-action="csv-current">CSV</button><button data-action="json-current">JSON</button></div></section>`;
 }
 function waku(h){const dark=[1,5,8].includes(h.waku);return`<div class="waku" style="background:${WAKU[h.waku]||"#777"};color:${dark?"#17120d":"#fff"}">${h.number}</div>`;}
-function dots(h){return Object.entries(h.sourceStatus||{}).map(([k,v])=>`<span title="${esc(labels[k])}" class="dot ${v?"on":""}"></span>`).join("");}
+function dots(h){return Object.entries(h.sourceStatus||{}).filter(([k])=>k!=="entryCsv").map(([k,v])=>`<span title="${esc(labels[k])}" class="dot ${v?"on":""}"></span>`).join("");}
 function horseCard(h){
   const b=h.basic||{},a=h.ability||{},t=h.trainingSummary||{},r=h.result||{},idx=(a.pastIndexes||[]).slice(0,8).map(x=>`<span class="index-chip ${x.surface==="D"?"dirt":""}">${x.value??"-"}${x.surface}</span>`).join("");
   return `<article class="horse-card" data-horse="${h.number}"><div class="horse-top">${waku(h)}<div class="horse-main"><div class="horse-name">${esc(h.name)}</div><div class="horse-meta">${esc(b.sex||r.sex)}${b.age??r.age??""} ${esc(b.jockey||r.jockey)} ${b.weight??r.weight??"-"}kg</div><div class="source-dots">${dots(h)}</div></div><div class="finish ${r.finish===1?"winner":""}"><b>${r.finish??"-"}</b><small>着</small></div></div>
-  <div class="metric-row"><div><span>ZI</span><b>${a.zi??"-"}</b></div><div><span>急加速最高</span><b>${fmt(t.maxCurrent)}</b></div><div><span>最終1F</span><b>${fmt(t.latest1F)}</b></div><div><span>人気</span><b>${r.popularity??b.popularity??"-"}</b></div><div><span>単勝</span><b>${r.odds??b.odds??"-"}</b></div></div>${idx?`<div class="index-row">${idx}</div>`:""}<div class="horse-foot"><span>${esc(h.training?.shortComment||"")}</span><span>${r.time?`${esc(r.time)} / 上り${fmt(r.last3f)}`:"結果未取込"}</span></div></article>`;
+  <div class="metric-row"><div><span>RT</span><b>${a.rt??"-"}</b></div><div><span>急加速最高</span><b>${fmt(t.maxCurrent)}</b></div><div><span>最終1F</span><b>${fmt(t.latest1F)}</b></div><div><span>人気</span><b>${r.popularity??b.popularity??"-"}</b></div><div><span>単勝</span><b>${r.odds??b.odds??"-"}</b></div></div>${idx?`<div class="index-row">${idx}</div>`:""}<div class="horse-foot"><span>${esc(h.training?.shortComment||"")}</span><span>${r.time?`${esc(r.time)} / 上り${fmt(r.last3f)}`:"結果未取込"}</span></div></article>`;
 }
 function integratedView(){
   const m=state.merged;if(!m)return`<div class="empty"><h2>統合データがありません</h2><button data-view="import">取込へ</button></div>`;
-  let hs=[...m.horses];if(state.sort==="zi")hs.sort((a,b)=>(b.ability?.zi??-999)-(a.ability?.zi??-999));else if(state.sort==="accel")hs.sort((a,b)=>(b.trainingSummary?.maxCurrent??-999)-(a.trainingSummary?.maxCurrent??-999));else if(state.sort==="finish")hs.sort((a,b)=>(a.result?.finish??999)-(b.result?.finish??999));else hs.sort((a,b)=>a.number-b.number);
+  let hs=[...m.horses];if(state.sort==="rt")hs.sort((a,b)=>(b.ability?.rt??-999)-(a.ability?.rt??-999));else if(state.sort==="accel")hs.sort((a,b)=>(b.trainingSummary?.maxCurrent??-999)-(a.trainingSummary?.maxCurrent??-999));else if(state.sort==="finish")hs.sort((a,b)=>(a.result?.finish??999)-(b.result?.finish??999));else hs.sort((a,b)=>a.number-b.number);
   return `<div class="race-hero"><div><span>${esc(m.meta.date)} ${esc(m.meta.venue)} ${m.meta.raceNo||"-"}R</span><h2>${esc(m.meta.raceName||m.raceId)}</h2><p>${esc(m.meta.surface||"")}${m.meta.distance?m.meta.distance+"m":""}・${m.counts.resultMatched?"結果登録済":"レース前データ"}</p></div><div class="hero-stat"><b>${m.counts.preRaceComplete}</b><small>結合頭数</small></div></div>
-  <div class="sort-bar"><button data-sort="number" class="${state.sort==="number"?"active":""}">馬番</button><button data-sort="zi" class="${state.sort==="zi"?"active":""}">ZI</button><button data-sort="accel" class="${state.sort==="accel"?"active":""}">急加速</button><button data-sort="finish" class="${state.sort==="finish"?"active":""}">着順</button></div><div class="horse-list">${hs.map(horseCard).join("")}</div>
-  <div class="sticky-actions"><button class="primary" data-action="cloud-save" ${!state.cloud.user?"disabled":""}>クラウド保存</button><button data-action="local-save">端末保存</button><button data-action="csv-current">CSV</button><button data-action="json-current">JSON</button></div>`;
+  <div class="sort-bar"><button data-sort="number" class="${state.sort==="number"?"active":""}">馬番</button><button data-sort="rt" class="${state.sort==="rt"?"active":""}">RT</button><button data-sort="accel" class="${state.sort==="accel"?"active":""}">急加速</button><button data-sort="finish" class="${state.sort==="finish"?"active":""}">着順</button></div><div class="horse-list">${hs.map(horseCard).join("")}</div>
+  <div class="sticky-actions"><button data-view="import">PDFを追加・差し替え</button><button class="primary" data-action="cloud-save" ${!state.cloud.user||!canSaveRace(m)?"disabled":""}>クラウド保存</button><button data-action="local-save" ${!canSaveRace(m)?"disabled":""}>端末保存</button><button data-action="csv-current">CSV</button><button data-action="json-current">JSON</button></div>`;
 }
 function sessionRow(s){if(s.overseas)return`<div class="session"><span>海外遠征</span></div>`;return`<div class="session"><div><b>${s.prev?"前走前 ":""}${esc(s.date)}</b><span>${esc(s.course)} ${esc(s.baba)} ${esc(s.style)}</span></div><div class="times">${(s.times||[]).map(v=>`<i>${fmt(v)}</i>`).join("")}</div>${s.note?`<p>${esc(s.note)}</p>`:""}</div>`;}
 function detailView(){
@@ -83,10 +77,10 @@ function detailView(){
   return `<button data-view="integrated" class="back">← 統合画面</button><div class="detail-title">${waku(h)}<div><h2>${esc(h.name)}</h2><p>${esc(b.sex)}${b.age??""} ${esc(b.jockey)} ${b.weight??"-"}kg</p></div></div>
   <section class="detail-card"><h3>特徴量エンジン v3.3.4</h3><dl><dt>特徴量数</dt><dd>${Object.keys(f).length}</dd><dt>品質スコア</dt><dd>${q.qualityScore??"-"} / 100（${esc(q.validationStatus||"-")}）</dd><dt>OCR/解析信頼度</dt><dd>${o.confidence!=null?Math.round(o.confidence*100)+"%":"-"}</dd><dt>方式</dt><dd>${esc(o.method||"-")}</dd><dt>計算時間</dt><dd>${l.calculationTimeMs??"-"} ms</dd><dt>Feature Version</dt><dd>${esc(l.featureVersion||FEATURE_SCHEMA_VERSION)}</dd></dl></section>
   <section class="detail-card"><h3>主要ルール特徴量</h3><dl><dt>能力代理指数</dt><dd>${fmt(f.speed_index_proxy,2)}</dd><dt>調教スコア</dt><dd>${fmt(f.training_score_rule,1)}</dd><dt>機動力</dt><dd>${fmt(f.agility_proxy,1)}</dd><dt>末脚力</dt><dd>${fmt(f.finish_power_proxy,1)}</dd><dt>持続力</dt><dd>${fmt(f.stamina_proxy,1)}</dd><dt>調整過程</dt><dd>${fmt(f.rotation_score,1)}</dd><dt>事前特徴量充足率</dt><dd>${f.pre_race_feature_completeness!=null?Math.round(f.pre_race_feature_completeness*100)+"%":"-"}</dd></dl><p class="hint">代理スコアは学習モデルではなく、再現可能なルール計算です。</p></section>
-  <section class="detail-card"><h3>能力・基本情報</h3><dl><dt>ZI</dt><dd>${a.zi??"-"}</dd><dt>父</dt><dd>${esc(a.sire||"-")}</dd><dt>母父</dt><dd>${esc(a.broodmareSire||"-")}</dd><dt>厩舎</dt><dd>${esc(b.affiliation||"")} ${esc(b.trainer||"")}</dd><dt>馬体重</dt><dd>${b.bodyWeight??r.bodyWeight??"-"}kg</dd></dl></section>
+  <section class="detail-card"><h3>能力・基本情報</h3><dl><dt>競馬ブックRT</dt><dd>${a.rt??"-"}</dd><dt>父</dt><dd>${esc(a.sire||"-")}</dd><dt>母父</dt><dd>${esc(a.broodmareSire||"-")}</dd><dt>厩舎</dt><dd>${esc(b.affiliation||"")} ${esc(b.trainer||"")}</dd><dt>馬体重</dt><dd>${b.bodyWeight??r.bodyWeight??"-"}kg</dd></dl></section>
   <section class="detail-card"><h3>調教履歴</h3>${(t.sessions||[]).map(sessionRow).join("")||'<p class="muted">調教データなし</p>'}</section>
   <section class="detail-card"><h3>品質指摘</h3>${q.issues?.length?`<ul class="diagnostics">${q.issues.map(i=>`<li class="${i.level}">${esc(i.message)} [${esc(i.code)}]</li>`).join("")}</ul>`:'<p class="muted">品質指摘なし</p>'}</section>
-  <section class="detail-card"><h3>レース結果</h3><dl><dt>着順</dt><dd>${r.finish??"-"}着</dd><dt>人気</dt><dd>${r.popularity??"-"}人気</dd><dt>単勝</dt><dd>${r.odds??"-"}倍</dd><dt>タイム</dt><dd>${esc(r.time||"-")}</dd><dt>上り3F</dt><dd>${fmt(r.last3f)}</dd><dt>通過</dt><dd>${(r.corners||[]).join("-")||"-"}</dd><dt>PCI</dt><dd>${r.pci??"-"}</dd></dl></section>`;
+  <section class="detail-card"><h3>レース結果</h3><dl><dt>着順</dt><dd>${r.finish??"-"}着</dd><dt>人気</dt><dd>${r.popularity??"-"}人気</dd><dt>単勝</dt><dd>${r.odds??"-"}倍</dd><dt>タイム</dt><dd>${esc(r.time||"-")}</dd><dt>上り3F</dt><dd>${fmt(r.last3f)}</dd><dt>通過</dt><dd>${(r.corners||[]).join("-")||"-"}</dd></dl></section>`;
 }
 function filteredLibrary(){
   const list=state.library==="cloud"?state.cloudRaces:Object.values(loadLocalRaces());const q=state.search.trim().toLowerCase();
@@ -96,7 +90,7 @@ function savedView(){
   const list=filteredLibrary();
   return `<div class="page-title"><span>RACE LIBRARY</span><h2>保存済みレース</h2></div><div class="library-toolbar"><button data-library="cloud" class="${state.library==="cloud"?"active":""}">クラウド</button><button data-library="local" class="${state.library==="local"?"active":""}">この端末</button><input id="search" value="${esc(state.search)}" placeholder="レース名・競馬場・日付を検索"><button data-action="refresh-cloud" ${!state.cloud.user?"disabled":""}>更新</button></div>
   ${state.library==="cloud"&&!state.cloud.user?`<div class="notice">クラウド一覧を見るにはGoogleログインしてください。</div>`:""}
-  <div class="saved-list">${list.length?list.map(r=>`<article class="saved-card"><div><span>${esc(r.meta?.date)} ${esc(r.meta?.venue)} ${r.meta?.raceNo||"-"}R</span><h3>${esc(r.meta?.raceName||r.raceId)}</h3><p>${r.horses?.length||0}頭 / ${r.counts?.resultMatched?"結果登録済":"レース前"}</p></div><div class="saved-actions"><button data-open="${esc(r.raceId)}">開く</button><button data-race-csv="${esc(r.raceId)}">CSV</button><button data-race-json="${esc(r.raceId)}">JSON</button><button class="danger" data-delete="${esc(r.raceId)}">削除</button></div></article>`).join(""):`<div class="empty">該当する保存レースはありません。</div>`}</div>
+  <div class="saved-list">${list.length?list.map(r=>`<article class="saved-card"><div><span>${esc(r.meta?.date)} ${esc(r.meta?.venue)} ${r.meta?.raceNo||"-"}R</span><h3>${esc(r.meta?.raceName||r.raceId)}</h3><p>${r.horseCount||r.horses?.length||0}頭 / ${r.counts?.resultMatched?"結果登録済":"レース前"}</p></div><div class="saved-actions"><button data-open="${esc(r.raceId)}">開く</button><button data-race-csv="${esc(r.raceId)}">CSV</button><button data-race-json="${esc(r.raceId)}">JSON</button><button class="danger" data-delete="${esc(r.raceId)}">削除</button></div></article>`).join(""):`<div class="empty">該当する保存レースはありません。</div>`}</div>
   <div class="actions"><button data-action="backup-library">表示中一覧をJSON保存</button><button data-action="sync-local" ${!state.cloud.user?"disabled":""}>端末データをクラウドへ同期</button></div>`;
 }
 function configTemplate(){const c=getEffectiveConfig();return JSON.stringify(c,null,2);}
@@ -269,15 +263,15 @@ function researchDashboardView(){
 
 function csvEscape(v){const s=String(v??"");return/[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function raceCsv(r){
-  const head=["レースID","日付","競馬場","R","レース名","枠","馬番","馬名","性","年齢","騎手","斤量","ZI","過去指数","父","母父","急加速最高","最終1F","最終3F","調教短評","着順","人気","単勝","走破タイム","上り3F","PCI","通過","馬体重","増減"];
-  const rows=r.horses.map(h=>{const b=h.basic||{},a=h.ability||{},t=h.trainingSummary||{},x=h.result||{};return[r.raceId,r.meta.date,r.meta.venue,r.meta.raceNo,r.meta.raceName,h.waku,h.number,h.name,b.sex||x.sex,b.age||x.age,b.jockey||x.jockey,b.weight||x.weight,a.zi,(a.pastIndexes||[]).map(i=>`${i.value??"-"}${i.surface}`).join("|"),a.sire,a.broodmareSire,t.maxCurrent,t.latest1F,t.latest3F,h.training?.shortComment,x.finish,x.popularity,x.odds,x.time,x.last3f,x.pci,(x.corners||[]).join("-"),x.bodyWeight??b.bodyWeight,x.bodyWeightDelta??b.bodyWeightDelta]});
+  const head=["レースID","日付","競馬場","R","レース名","枠","馬番","馬名","性","年齢","騎手","斤量","RT","過去指数","父","母父","急加速最高","最終1F","最終3F","調教短評","着順","人気","単勝","走破タイム","上り3F","PCI","通過","馬体重","増減"];
+  const rows=r.horses.map(h=>{const b=h.basic||{},a=h.ability||{},t=h.trainingSummary||{},x=h.result||{};return[r.raceId,r.meta.date,r.meta.venue,r.meta.raceNo,r.meta.raceName,h.waku,h.number,h.name,b.sex||x.sex,b.age||x.age,b.jockey||x.jockey,b.weight||x.weight,a.rt,(a.pastIndexes||[]).map(i=>`${i.value??"-"}${i.surface}`).join("|"),a.sire,a.broodmareSire,t.maxCurrent,t.latest1F,t.latest3F,h.training?.shortComment,x.finish,x.popularity,x.odds,x.time,x.last3f,x.pci,(x.corners||[]).join("-"),x.bodyWeight??b.bodyWeight,x.bodyWeightDelta??b.bodyWeightDelta]});
   return"\uFEFF"+[head,...rows].map(row=>row.map(csvEscape).join(",")).join("\r\n");
 }
 function download(content,name,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function safeName(r){return`${r.meta?.date||""}_${r.meta?.raceName||r.raceId}`.replace(/[\\/:*?"<>|]/g,"_");}
 function exportCsv(r){download(raceCsv(r),`${safeName(r)}_GallopAI.csv`,"text/csv;charset=utf-8");}
 function exportJson(r){download(JSON.stringify(r,null,2),`${safeName(r)}_GallopAI.json`,"application/json");}
-async function cloudSave(){if(!state.merged)return;try{state.busy="特徴量・品質・OCR・ログを生成して保存中";render();state.merged=attachResearch(state.merged,state.merged.researchPackage);if(state.merged.quality?.validationStatus==="ERROR")throw new Error("品質エラーがあるため保存できません。研究所の品質指摘を確認してください。");const singleAnalysis=buildResearchAnalysis([state.merged]);await saveCloudRace(state.merged,singleAnalysis);await refreshCloud();await refreshResearch(true);toast("v3.3.4正式構造でクラウド保存・統計更新しました");}catch(e){state.error=e.message;}state.busy="";render();}
+async function cloudSave(){if(!state.merged)return;try{if(!canSaveRace(state.merged))throw new Error("出走表・調教を全頭そろえ、日付と照合結果を確認してください。");state.busy="特徴量・品質・OCR・ログを生成して保存中";render();state.merged=attachResearch(state.merged,state.merged.researchPackage);if(state.merged.quality?.validationStatus==="ERROR")throw new Error("品質エラーがあるため保存できません。研究所の品質指摘を確認してください。");const singleAnalysis=buildResearchAnalysis([state.merged]);await saveCloudRace(state.merged,singleAnalysis);await refreshCloud();await refreshResearch(true);toast("v3.3.4正式構造でクラウド保存・統計更新しました");}catch(e){state.error=e.message;}state.busy="";render();}
 async function refreshCloud(){if(!currentCloudUser()){state.cloudRaces=[];return;}state.cloudRaces=await listCloudRaces();}
 async function refreshResearchDashboard(){
  if(!currentCloudUser()){
@@ -302,15 +296,15 @@ async function refreshResearch(saveGlobal=false){
   state.researchStatus="error";state.researchError=error.message||String(error);
  }finally{render();}
 }
-async function openRace(id){let r=state.library==="cloud"?await getCloudRace(id):loadLocalRaces()[id];if(r){state.merged=attachResearch(r,r.researchPackage);state.view="integrated";render();}}
+async function openRace(id){try{const r=state.library==="cloud"?await getCloudRace(id):loadLocalRaces()[id];if(r){state.merged=attachResearch(r,r.researchPackage);state.sources=sourcesFromRace(r);persist();state.error="";state.view="integrated";render();}}catch(e){state.error=e.message;render();}}
 async function removeRace(id){if(!confirm("このレースを削除しますか？"))return;if(state.library==="cloud"){await deleteCloudRace(id);await refreshCloud();}else deleteLocalRace(id);render();}
 function header(){
   const u=state.cloud.user,status=u?`☁ ${esc(u.email)}`:state.cloud.configured?"☁ 未ログイン":"端末モード";
-  return `<header><div class="brand"><div class="logo">G</div><div><b>GallopAI</b><span>Version 3.4</span></div></div><div class="auth"><span>${status}</span>${u?'<button data-action="signout">ログアウト</button>':state.cloud.configured?'<button data-action="signin">Googleログイン</button>':""}</div><nav>${[["import","取込"],["integrated","統合"],["research","研究所"],["saved","保存"],["settings","設定"]].map(([v,l])=>`<button data-view="${v}" class="${state.view===v||state.view==="detail"&&v==="integrated"?"active":""}">${l}</button>`).join("")}</nav></header>`;
+  return `<header><div class="brand"><div class="logo">G</div><div><b>GallopAI</b><span>Version 3.5 · PDF</span></div></div><div class="auth"><span>${status}</span>${u?'<button data-action="signout">ログアウト</button>':state.cloud.configured?'<button data-action="signin">Googleログイン</button>':""}</div><nav>${[["import","取込"],["integrated","統合"],["research","研究所"],["saved","保存"],["settings","設定"]].map(([v,l])=>`<button data-view="${v}" class="${state.view===v||state.view==="detail"&&v==="integrated"?"active":""}">${l}</button>`).join("")}</nav></header>`;
 }
 function render(){
   const content=state.view==="import"?importView():state.view==="integrated"?integratedView():state.view==="detail"?detailView():state.view==="research"?researchDashboardView():state.view==="saved"?savedView():settingsView();
-  document.getElementById("app").innerHTML=`${header()}<main>${content}</main>${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}<footer>GallopAI v3.4｜機械学習は禁止。50レースまでは統計検証のみ。</footer>`;bind();
+  document.getElementById("app").innerHTML=`${header()}<main>${state.busy?`<div class="busy" role="status"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box" role="alert">${esc(state.error)}</div>`:""}${content}</main>${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}<footer>GallopAI v3.5｜機械学習は禁止。50レースまでは統計検証のみ。</footer>`;bind();
 }
 function bind(){
   document.querySelectorAll("[data-view]").forEach(e=>e.onclick=async()=>{state.view=e.dataset.view;render();if(state.view==="research"&&state.cloud.user&&state.researchStatus==="idle")await refreshResearchDashboard();});
@@ -326,12 +320,12 @@ function bind(){
   const search=document.getElementById("search");if(search)search.oninput=()=>{state.search=search.value;render();};
   const restore=document.getElementById("jsonRestore");if(restore)restore.onchange=async()=>{try{const data=JSON.parse(await restore.files[0].text());const n=importLocalBackup(data);toast(`${n}件を端末へ復元しました`);}catch(e){state.error=e.message;render();}};
   document.querySelectorAll("[data-action]").forEach(e=>e.onclick=async()=>{
-    const a=e.dataset.action;
+    const a=e.dataset.action;if(state.busy)return;
     try{
       if(a==="sample")await loadSample();
-      if(a==="clear"&&confirm("現在の読込データを消去しますか？")){state.sources={targetText:null,training:null,entryCsv:null,resultCsv:null};state.merged=null;clearWorkspace();render();}
+      if(a==="clear"&&confirm("新しいレースの登録を始めますか？現在の取込内容をクリアします。保存済みのレースは残ります。")){state.sources={targetText:null,training:null,entryCsv:null,resultCsv:null};state.merged=null;state.error="";state.view="import";clearWorkspace();render();}
       if(a==="integrated"){state.view="integrated";render();}
-      if(a==="local-save"&&state.merged){state.merged=attachResearch(state.merged,state.merged.researchPackage);const existed=!!loadLocalRaces()[state.merged.raceId];saveLocalRace(state.merged);toast(existed?"端末の既存レースを更新しました":"端末へ保存しました");}
+      if(a==="local-save"&&state.merged){if(!canSaveRace(state.merged))throw new Error("出走表・調教を全頭そろえ、照合結果を確認してください。");state.merged=attachResearch(state.merged,state.merged.researchPackage);const existed=!!loadLocalRaces()[state.merged.raceId];saveLocalRace(state.merged);toast(existed?"端末の既存レースを更新しました":"端末へ保存しました");}
       if(a==="cloud-save")await cloudSave();
       if(a==="csv-current"&&state.merged)exportCsv(state.merged);
       if(a==="json-current"&&state.merged)exportJson(state.merged);

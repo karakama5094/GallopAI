@@ -1,10 +1,12 @@
-# GallopAI v3.3.2 公開手順
+# GallopAI v3.5.0 公開手順
 
-1. Firebase Console → Firestore → ルールで`firestore.rules`を貼り付け、公開します。
-2. ZIPを展開します。
-3. 展開した`GallopAI-v3.3.2`フォルダをVercelへデプロイします。
-4. 発行された`vercel.app`ドメインをFirebase Authenticationの承認済みドメインへ追加します。
-5. Googleログインします。
-6. 研究所で「旧データ→v3.3.2移行」を実行します。
-7. 続けて「クラウド全件を再集計」を実行します。
-8. FirestoreのHorse 01で`raw/features/quality/ocr/logs/versions`を確認します。
+既存のVercelプロジェクトとFirebase設定を継続使用します。データ移行・データ削除・権限ルール変更は不要です。
+
+1. テスト済みの変更を既存リポジトリのmainへ反映します。
+2. Vercelの自動デプロイがReadyになることを確認します。静的サイト設定のままで、追加のビルドコマンドは不要です。
+3. 本番サイトで「Version 3.5 · PDF」とPDF取込欄3種類を確認します。
+4. 古い表示が残る場合はオンラインで再読み込みし、タブを閉じて再度開きます。保存データを失うため、サイトデータの削除は行わないでください。
+
+配布ZIPの場合は同じファイル一式を既存Vercelプロジェクトへ反映します。PDF原本は配布物に含めません。
+
+利用手順は [IPHONE_GUIDE.md](IPHONE_GUIDE.md) を参照してください。
