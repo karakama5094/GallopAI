@@ -1,3 +1,5 @@
+import {predictRace} from "./prediction.js";
+import {predictionView} from "./prediction-view.js";
 import {COURSE_TABLE} from "./parsers.js";
 import {importPdf,validateSourceRace,sourcesFromRace,canSaveRace} from "./pdf-import.js";
 import {mergeSources,acceleration} from "./engine.js";
@@ -30,7 +32,7 @@ async function importFile(slot,file){
     const merged=attachResearch(mergeSources(sources,state.settings),state.merged?.researchPackage);
     const mismatch=merged.diagnostics.find(d=>d.level==='error');
     if(mismatch)throw new Error(mismatch.message+'。同じレースのPDFを確認してください。');
-    state.sources=sources;state.merged=merged;
+    state.sources=sources;state.merged=merged;state.prediction=null;
     try{persist();}catch{state.error='読み込みは完了しましたが、この端末の空き容量が不足しています。クラウド保存してください。';}
   }catch(e){state.error=`${labels[slot]}: ${e.message}`;}
   state.busy="";render();
@@ -121,12 +123,12 @@ function phase1Kpis(d){
   </div>`;
 }
 function legacyResearchDashboardView(){
-  const title=`<div class="page-title"><span>RESEARCH DASHBOARD ${RESEARCH_DASHBOARD_VERSION}</span><h2>研究ダッシュボード</h2><p>Horse ルートの canonical schema から集計します。機械学習は無効です。</p></div>`;
+  const title=`<div class="page-title"><span>RESEARCH DASHBOARD ${RESEARCH_DASHBOARD_VERSION}</span><h2>研究ダッシュボード</h2><p>Horse ルートの canonical schema から集計します。予想機能は「予想AI」タブにあります。</p></div>`;
   if(state.researchStatus==="loading")return`${title}<div class="busy" role="status"><span class="spinner"></span>研究データを読み込んでいます…</div>`;
   if(state.researchStatus==="error")return`${title}<div class="error-box" role="alert"><b>研究データを読み込めませんでした。</b><br>${esc(state.researchError)}</div><button data-action="refresh-research-dashboard">再試行</button>`;
   const races=state.cloud.user?state.researchRaces:Object.values(loadLocalRaces());
   const dashboard=state.researchDashboardSummary||buildResearchDashboard(races);
-  if(!races.length)return`${title}${phase1Kpis(dashboard)}<div class="research-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${RESEARCH_RACE_TARGET}" aria-valuenow="0"><span style="width:0%"></span></div><div class="empty"><h3>研究データがありません</h3><p>保存済みRace/Horseが0件です。機械学習は無効です。</p>${state.cloud.user?'<button data-action="refresh-research-dashboard">Recalculate from Cloud</button>':""}</div>`;
+  if(!races.length)return`${title}${phase1Kpis(dashboard)}<div class="research-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${RESEARCH_RACE_TARGET}" aria-valuenow="0"><span style="width:0%"></span></div><div class="empty"><h3>研究データがありません</h3><p>保存済みRace/Horseが0件です。予想機能は「予想AI」タブにあります。</p>${state.cloud.user?'<button data-action="refresh-research-dashboard">Recalculate from Cloud</button>':""}</div>`;
   const researchCache=state.researchAuditCache?.races===races?state.researchAuditCache:null,model=researchCache?.model||buildCanonicalResearchModel(races),dictionary=researchCache?.dictionary||featureDictionary(),diagnostics=filterDiagnostics(buildConsistencyDiagnostics(model),state.researchDiagnosticFilters),versionAudit=buildVersionRecalculationAudit(model),versionIssues=filterVersionAuditIssues(versionAudit.issues,state.researchVersionFilters),versionPage=paginate(versionIssues,state.researchVersionPage,50),provenanceAudit=buildProvenanceFreshnessAudit(model,dictionary,new Date()),provenanceIssues=filterProvenanceIssues(provenanceAudit.issues,state.researchProvenanceFilters),provenancePage=paginate(provenanceIssues,state.researchProvenancePage,state.researchProvenancePageSize),schemaAudit=researchCache?.schemaAudit||buildSchemaTypeAudit(model,dictionary),schemaInventory=filterSchemaInventory(schemaAudit.inventory,state.researchSchemaFilters),schemaIssues=filterSchemaIssues(schemaAudit.issues,state.researchSchemaFilters),schemaPage=paginate(schemaIssues,state.researchSchemaPage,state.researchSchemaPageSize),schemaField=state.researchSchemaField||schemaInventory[0]?.fieldPath||"",schemaStability=schemaAudit.stability.filter(x=>x.fieldPath===schemaField),d=dashboard,details=buildQualityDetails(races),filtered=filterProblematicHorses(details.rows,state.researchQualityFilters),trends=buildRaceTrends(races),monthly=buildMonthlyTrends(trends),comparison=comparePeriods(trends,state.researchPeriods),value=(x,digits=1)=>x==null?"-":Number(x).toFixed(digits);
   const missingAudit=researchCache?.missingAudit||buildMissingnessAudit(model,schemaAudit,dictionary),missingSummary=filterMissingnessSummary(missingAudit.summary,state.researchMissingFilters),missingDependencies=filterDependencyAudit(missingAudit.dependencies,state.researchMissingFilters),missingIssues=filterMissingnessIssues(missingAudit.issues,state.researchMissingFilters),missingPage=paginate(missingIssues,state.researchMissingPage,state.researchMissingPageSize),missingField=state.researchMissingField||missingSummary[0]?.fieldPath||missingAudit.fieldPaths[0]||"",missingMonthly=buildMonthlyMissingness(model,missingField),coFields=state.researchCoMissingFields.length?state.researchCoMissingFields:missingAudit.fieldPaths.slice(0,2),coMissingness=buildCoMissingness(model,coFields);
   if(!researchCache)state.researchAuditCache={races,model,dictionary,schemaAudit,missingAudit};state.researchCanonicalModel=model;state.researchMissingAudit=missingAudit;
@@ -141,7 +143,7 @@ function legacyResearchDashboardView(){
   const q=details.issueTotals,f=state.researchQualityFilters,issueMax=Math.max(1,...trends.flatMap(row=>[row.missingCount,row.warningCount,row.errorCount])),p=state.researchPeriods;
   const featureRows=buildFeatureCoverage(races,featureDictionary()),featureFiltered=filterFeatureCoverage(featureRows,state.researchFeatureFilters),selectedKey=state.selectedFeature||featureRows[0]?.key||"",stability=buildFeatureStability(races,selectedKey),stabilityWarnings=featureStabilityWarnings(stability);
   return`${title}<div class="notice">共有canonical model: ${model.horses.length}頭 / ${model.calculationDurationMs.toFixed(2)} ms</div>${d.partialData?`<div class="notice partial-data" role="status"><b>一部データに欠損があります。</b><ul>${d.warnings.map(warning=>`<li>${esc(warning)}</li>`).join("")}</ul></div>`:""}${phase1Kpis(d)}<div class="research-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${RESEARCH_RACE_TARGET}" aria-valuenow="${Math.min(d.raceCount,RESEARCH_RACE_TARGET)}"><span style="width:${d.progressTo50}%"></span></div>
-  <div class="notice"><b>${d.raceCount}/${RESEARCH_RACE_TARGET} レース</b><br>${d.thresholdReached?"最低蓄積基準に到達しました。学習前に別途検証フェーズが必要です。":`統計蓄積中です。残り ${d.remainingRaces} レースです。`}<br>機械学習は無効です。AI学習ボタンは表示しません。</div>
+  <div class="notice"><b>${d.raceCount}/${RESEARCH_RACE_TARGET} レース</b><br>${d.thresholdReached?"最低蓄積基準に到達しました。学習前に別途検証フェーズが必要です。":`統計蓄積中です。残り ${d.remainingRaces} レースです。`}<br>予想AIタブで、学習と時系列検証を実行できます。</div>
   <div class="actions"><button class="primary" data-action="refresh-research-dashboard" ${!state.cloud.user?"disabled":""}>Recalculate from Cloud</button></div>
   <section class="settings-card"><h3>qualityScore 分布</h3>${distribution(details.qualityDistribution)}</section>
   <section class="settings-card"><h3>OCR confidence 分布</h3>${distribution(details.ocrDistribution)}</section>
@@ -246,19 +248,19 @@ function legacyResearchDashboardView(){
   ${diagnostics.length?`<div class="quality-table"><table><thead><tr><th>severity</th><th>type</th><th>raceId</th><th>馬番</th><th>説明</th></tr></thead><tbody>${diagnostics.map(x=>`<tr><td>${esc(x.severity)}</td><td>${esc(x.type)}</td><td>${esc(x.raceId)}</td><td>${esc(x.horseNumber??"-")}</td><td>${esc(x.message)}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">条件に一致する診断はありません。</div>'}</section>`;
 }
 function researchDashboardView(){
-  const title=`<div class="page-title"><span>RESEARCH DASHBOARD ${RESEARCH_DASHBOARD_VERSION}</span><h2>研究ダッシュボード</h2><p>Horse ルートの canonical schema から集計します。機械学習は無効です。</p></div>`;
+  const title=`<div class="page-title"><span>RESEARCH DASHBOARD ${RESEARCH_DASHBOARD_VERSION}</span><h2>研究ダッシュボード</h2><p>Horse ルートの canonical schema から集計します。予想機能は「予想AI」タブにあります。</p></div>`;
   if(state.researchStatus==="loading")return`${title}<div class="busy" role="status"><span class="spinner"></span>研究データを読み込んでいます…</div>`;
   if(state.researchStatus==="error")return`${title}<div class="error-box" role="alert"><b>研究データを読み込めませんでした。</b><br>${esc(state.researchError)}</div><button data-action="refresh-research-dashboard">再試行</button>`;
   const races=state.cloud.user?state.researchRaces:Object.values(loadLocalRaces());
   const dashboard=state.researchDashboardSummary||buildResearchDashboard(races);
   const progress=`<div class="research-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${RESEARCH_RACE_TARGET}" aria-valuenow="${Math.min(dashboard.raceCount,RESEARCH_RACE_TARGET)}"><span style="width:${dashboard.progressTo50}%"></span></div>`;
   const recalculation=state.cloud.user?'<div class="actions"><button class="primary" data-action="refresh-research-dashboard">Recalculate from Cloud</button></div>':"";
-  if(!races.length)return`${title}${phase1Kpis(dashboard)}${progress}<div class="empty"><h3>研究データがありません</h3><p>保存済みRace/Horseが0件です。機械学習は無効です。</p>${recalculation}</div>`;
+  if(!races.length)return`${title}${phase1Kpis(dashboard)}${progress}<div class="empty"><h3>研究データがありません</h3><p>保存済みRace/Horseが0件です。予想機能は「予想AI」タブにあります。</p>${recalculation}</div>`;
   const partial=dashboard.partialData?`<div class="notice partial-data" role="status"><b>一部データに欠損があります。</b><ul>${dashboard.warnings.map(warning=>`<li>${esc(warning)}</li>`).join("")}</ul></div>`:"";
   const threshold=dashboard.thresholdReached
     ?"最低蓄積基準に到達しました。学習前に別途検証フェーズが必要です。"
     :`統計蓄積中です。残り ${dashboard.remainingRaces} レースです。`;
-  return`${title}${partial}${phase1Kpis(dashboard)}${progress}<div class="notice"><b>${dashboard.raceCount}/${RESEARCH_RACE_TARGET} レース</b><br>${threshold}<br>機械学習は無効です。AI学習ボタンは表示しません。</div>${recalculation}`;
+  return`${title}${partial}${phase1Kpis(dashboard)}${progress}<div class="notice"><b>${dashboard.raceCount}/${RESEARCH_RACE_TARGET} レース</b><br>${threshold}<br>予想AIタブで、学習と時系列検証を実行できます。</div>${recalculation}`;
 }
 
 function csvEscape(v){const s=String(v??"");return/[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
@@ -296,15 +298,15 @@ async function refreshResearch(saveGlobal=false){
   state.researchStatus="error";state.researchError=error.message||String(error);
  }finally{render();}
 }
-async function openRace(id){try{const r=state.library==="cloud"?await getCloudRace(id):loadLocalRaces()[id];if(r){state.merged=attachResearch(r,r.researchPackage);state.sources=sourcesFromRace(r);persist();state.error="";state.view="integrated";render();}}catch(e){state.error=e.message;render();}}
+async function openRace(id){try{const r=state.library==="cloud"?await getCloudRace(id):loadLocalRaces()[id];if(r){state.merged=attachResearch(r,r.researchPackage);state.sources=sourcesFromRace(r);state.prediction=null;state.predictionPopularity={};persist();state.error="";state.view="integrated";render();}}catch(e){state.error=e.message;render();}}
 async function removeRace(id){if(!confirm("このレースを削除しますか？"))return;if(state.library==="cloud"){await deleteCloudRace(id);await refreshCloud();}else deleteLocalRace(id);render();}
 function header(){
   const u=state.cloud.user,status=u?`☁ ${esc(u.email)}`:state.cloud.configured?"☁ 未ログイン":"端末モード";
-  return `<header><div class="brand"><div class="logo">G</div><div><b>GallopAI</b><span>Version 3.5 · PDF</span></div></div><div class="auth"><span>${status}</span>${u?'<button data-action="signout">ログアウト</button>':state.cloud.configured?'<button data-action="signin">Googleログイン</button>':""}</div><nav>${[["import","取込"],["integrated","統合"],["research","研究所"],["saved","保存"],["settings","設定"]].map(([v,l])=>`<button data-view="${v}" class="${state.view===v||state.view==="detail"&&v==="integrated"?"active":""}">${l}</button>`).join("")}</nav></header>`;
+  return `<header><div class="brand"><div class="logo">G</div><div><b>GallopAI</b><span>Version 3.6 · PDF＋予想</span></div></div><div class="auth"><span>${status}</span>${u?'<button data-action="signout">ログアウト</button>':state.cloud.configured?'<button data-action="signin">Googleログイン</button>':""}</div><nav>${[["import","取込"],["integrated","統合"],["prediction","予想AI"],["research","研究所"],["saved","保存"],["settings","設定"]].map(([v,l])=>`<button data-view="${v}" class="${state.view===v||state.view==="detail"&&v==="integrated"?"active":""}">${l}</button>`).join("")}</nav></header>`;
 }
 function render(){
-  const content=state.view==="import"?importView():state.view==="integrated"?integratedView():state.view==="detail"?detailView():state.view==="research"?researchDashboardView():state.view==="saved"?savedView():settingsView();
-  document.getElementById("app").innerHTML=`${header()}<main>${state.busy?`<div class="busy" role="status"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box" role="alert">${esc(state.error)}</div>`:""}${content}</main>${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}<footer>GallopAI v3.5｜機械学習は禁止。50レースまでは統計検証のみ。</footer>`;bind();
+  const content=state.view==="prediction"?predictionView(state.merged,state.prediction,state.predictionPopularity):state.view==="import"?importView():state.view==="integrated"?integratedView():state.view==="detail"?detailView():state.view==="research"?researchDashboardView():state.view==="saved"?savedView():settingsView();
+  document.getElementById("app").innerHTML=`${header()}<main>${state.busy?`<div class="busy" role="status"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box" role="alert">${esc(state.error)}</div>`:""}${content}</main>${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}<footer>GallopAI v3.6｜予想は検証段階です。的中・利益を保証しません。</footer>`;bind();
 }
 function bind(){
   document.querySelectorAll("[data-view]").forEach(e=>e.onclick=async()=>{state.view=e.dataset.view;render();if(state.view==="research"&&state.cloud.user&&state.researchStatus==="idle")await refreshResearchDashboard();});
@@ -321,9 +323,16 @@ function bind(){
   const restore=document.getElementById("jsonRestore");if(restore)restore.onchange=async()=>{try{const data=JSON.parse(await restore.files[0].text());const n=importLocalBackup(data);toast(`${n}件を端末へ復元しました`);}catch(e){state.error=e.message;render();}};
   document.querySelectorAll("[data-action]").forEach(e=>e.onclick=async()=>{
     const a=e.dataset.action;if(state.busy)return;
+      if(a==="predict"){
+        state.predictionPopularity=Object.fromEntries([...document.querySelectorAll("[data-prediction-popularity]")].map(el=>[el.dataset.predictionPopularity,el.value]));
+        const predictionTarget=state.merged;state.prediction=null;state.error="";state.busy="過去データの読込・学習・時系列検証中";render();
+        try{const cloud=state.cloud.user?await loadResearchDataset():[];const prediction=predictRace(predictionTarget,[...cloud,...Object.values(loadLocalRaces())],state.predictionPopularity);if(state.merged===predictionTarget)state.prediction=prediction;}catch(err){state.error=err.message;}
+        state.busy="";render();return;
+      }
+      if(a==="prediction-export"&&state.prediction){download(JSON.stringify(state.prediction,null,2),"GallopAI_prediction.json","application/json");return;}
     try{
       if(a==="sample")await loadSample();
-      if(a==="clear"&&confirm("新しいレースの登録を始めますか？現在の取込内容をクリアします。保存済みのレースは残ります。")){state.sources={targetText:null,training:null,entryCsv:null,resultCsv:null};state.merged=null;state.error="";state.view="import";clearWorkspace();render();}
+      if(a==="clear"&&confirm("新しいレースの登録を始めますか？現在の取込内容をクリアします。保存済みのレースは残ります。")){state.sources={targetText:null,training:null,entryCsv:null,resultCsv:null};state.merged=null;state.prediction=null;state.predictionPopularity={};state.error="";state.view="import";clearWorkspace();render();}
       if(a==="integrated"){state.view="integrated";render();}
       if(a==="local-save"&&state.merged){if(!canSaveRace(state.merged))throw new Error("出走表・調教を全頭そろえ、照合結果を確認してください。");state.merged=attachResearch(state.merged,state.merged.researchPackage);const existed=!!loadLocalRaces()[state.merged.raceId];saveLocalRace(state.merged);toast(existed?"端末の既存レースを更新しました":"端末へ保存しました");}
       if(a==="cloud-save")await cloudSave();

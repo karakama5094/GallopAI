@@ -1,4 +1,6 @@
-# GallopAI v3.5.0 — iPhone・競馬ブックPDF版
+# GallopAI v3.6.0 — PDF取込＋予想AI初期版
+
+「予想AI」で◎○▲△×★と根拠を表示します。データ不足時は暫定評価です。学習条件・対応範囲は [予想AIガイド](PREDICTION_GUIDE.md) を参照してください。
 
 出走表（能力表HTML）・調教・レース結果をPDFで添付します。TARGETは不要です。
 利用手順は [iPhone利用ガイド](IPHONE_GUIDE.md)、変更点と検証範囲は [リリースノート](RELEASE_3_5.md) を参照してください。
