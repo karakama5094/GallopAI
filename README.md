@@ -1,4 +1,9 @@
-# GallopAI v3.4.0
+# GallopAI v3.5.0 — iPhone・競馬ブックPDF版
+
+出走表（能力表HTML）・調教・レース結果をPDFで添付します。TARGETは不要です。
+利用手順は [iPhone利用ガイド](IPHONE_GUIDE.md)、変更点と検証範囲は [リリースノート](RELEASE_3_5.md) を参照してください。
+
+## 引き継いでいる保存構造
 
 Horse保存構造を正式版へ統一したデータ品質リリースです。Research Dashboard Phase 1のバージョンは`1.0.0`です。
 
