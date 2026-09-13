@@ -19,6 +19,13 @@ function entryItems(number=1,name='テストホース',y=100){return [
   item('1',34,y+25),item(String(number),53,y+25),item('62.5',72,y+10,24),item('58',103,y+25,14),item('騎',122,y+10),item('手',122,y+25),item('名',122,y+40)
 ];}
 
+test('entry ignores rounded trainer boundary and square local prefix',()=>{
+  const items=entryItems(1,'[地]テストホース');
+  items.push(item('4-1-0-2',308.99997,120,60,14));
+  const h=parseKeibabookEntry(doc([items])).horses[0];
+  assert.equal(h.name,'テストホース');
+});
+
 test('race heading excludes navigation links and print timestamp',()=>{
   assert.deepEqual(parsePdfRaceMeta('2026/07/11 19:46\n1R 2R 3R\n'+heading),meta);
   assert.equal(parsePdfRaceMeta('1R 2R\n2026年7月18日 2回小倉7日目\n1R 障害未勝利\n2860m (芝A・右)').raceNo,1);
@@ -85,7 +92,8 @@ test('real Keibabook Arima PDFs: all 16 entries, workouts and results agree',{sk
   globalThis.pdfjsWorker=bundle('pdf.worker.min.js');
   const pdfjs=bundle('pdf.min.js'),dir=process.env.GALLOPAI_PDF_FIXTURE_DIR;
   const suffix='  2025年12月28日中山11R第７０回　有馬記念(ＧＩ)  競馬ブック.pdf';
-  const files=[['targetText',path.join(dir,'出馬表','能力表HTML'+suffix)],['training',path.join(dir,'調教'+suffix)],['resultCsv',path.join(dir,'レース結果','レース結果'+suffix)]];
+  const trainingFile=fs.existsSync(path.join(dir,'調教','調教'+suffix))?path.join(dir,'調教','調教'+suffix):path.join(dir,'調教'+suffix);
+  const files=[['targetText',path.join(dir,'出馬表','能力表HTML'+suffix)],['training',trainingFile],['resultCsv',path.join(dir,'レース結果','レース結果'+suffix)]];
   const sources={};
   for(const [slot,file]of files){const bytes=fs.readFileSync(file),document=await extractPdfDocument({name:path.basename(file),size:bytes.length,arrayBuffer:async()=>Uint8Array.from(bytes).buffer},pdfjs);sources[slot]=parsePdfSource(document,slot,path.basename(file));assert.equal(sources[slot].count,16);assert.equal(sources[slot].meta.raceNo,11);assert.equal(sources[slot].meta.venue,'中山');assert.equal(sources[slot].meta.date,'2025-12-28');}
   const race=mergeSources(sources),research=buildResearchPackage(race);
