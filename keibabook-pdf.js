@@ -3,7 +3,7 @@ import {textRows,pageText} from './pdf-layout.js';
 const VENUES='札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|門別|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀|帯広';
 const SEX=/(牡|牝|せん|セン|セ)\s*(\d{1,2})/;
 const compact=s=>String(s||'').normalize('NFKC').replace(/\s/g,'');
-const horseName=s=>compact(s).replace(/^\((?:外|地|父|市)\)/g,'');
+const horseName=s=>compact(s).replace(/^(?:\((?:外|地|父|市)\)|\[(?:外|地|父|市)\])+/g,'');
 const join=items=>pageText(items).replace(/\n/g,' ').trim();
 const inside=(items,left,right,top,bottom)=>items.filter(i=>i.x>=left&&i.x<right&&i.y>=top&&i.y<bottom);
 const sexValue=s=>/せん|セン|セ/.test(s)?'セ':s;
@@ -42,7 +42,8 @@ export function parseKeibabookEntry(document,filename='') {
   let columns=null;
   for(const items of document.pages){
     const label=items.find(i=>i.text==='父名'),trainerLabel=items.find(i=>i.text.includes('厩舎名'));
-    if(label&&trainerLabel)columns={left:label.x-2,right:trainerLabel.x-1};
+    // Body text starts 1pt left of the heading; allow for PDF float rounding.
+    if(label&&trainerLabel)columns={left:label.x-2,right:trainerLabel.x-2};
     if(!columns)continue;
     const {left,right}=columns;
     const rows=textRows(inside(items,left,right,-Infinity,Infinity));

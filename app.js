@@ -1,3 +1,5 @@
+import {backtestRaces} from "./backtest.js";
+import {backtestView} from "./backtest-view.js";
 import {predictRace} from "./prediction.js";
 import {predictionView} from "./prediction-view.js";
 import {COURSE_TABLE} from "./parsers.js";
@@ -302,11 +304,11 @@ async function openRace(id){try{const r=state.library==="cloud"?await getCloudRa
 async function removeRace(id){if(!confirm("このレースを削除しますか？"))return;if(state.library==="cloud"){await deleteCloudRace(id);await refreshCloud();}else deleteLocalRace(id);render();}
 function header(){
   const u=state.cloud.user,status=u?`☁ ${esc(u.email)}`:state.cloud.configured?"☁ 未ログイン":"端末モード";
-  return `<header><div class="brand"><div class="logo">G</div><div><b>GallopAI</b><span>Version 3.6 · PDF＋予想</span></div></div><div class="auth"><span>${status}</span>${u?'<button data-action="signout">ログアウト</button>':state.cloud.configured?'<button data-action="signin">Googleログイン</button>':""}</div><nav>${[["import","取込"],["integrated","統合"],["prediction","予想AI"],["research","研究所"],["saved","保存"],["settings","設定"]].map(([v,l])=>`<button data-view="${v}" class="${state.view===v||state.view==="detail"&&v==="integrated"?"active":""}">${l}</button>`).join("")}</nav></header>`;
+  return `<header><div class="brand"><div class="logo">G</div><div><b>GallopAI</b><span>Version 3.7 · PDF＋予想</span></div></div><div class="auth"><span>${status}</span>${u?'<button data-action="signout">ログアウト</button>':state.cloud.configured?'<button data-action="signin">Googleログイン</button>':""}</div><nav>${[["import","取込"],["integrated","統合"],["prediction","予想AI"],["research","研究所"],["saved","保存"],["settings","設定"]].map(([v,l])=>`<button data-view="${v}" class="${state.view===v||state.view==="detail"&&v==="integrated"?"active":""}">${l}</button>`).join("")}</nav></header>`;
 }
 function render(){
-  const content=state.view==="prediction"?predictionView(state.merged,state.prediction,state.predictionPopularity):state.view==="import"?importView():state.view==="integrated"?integratedView():state.view==="detail"?detailView():state.view==="research"?researchDashboardView():state.view==="saved"?savedView():settingsView();
-  document.getElementById("app").innerHTML=`${header()}<main>${state.busy?`<div class="busy" role="status"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box" role="alert">${esc(state.error)}</div>`:""}${content}</main>${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}<footer>GallopAI v3.6｜予想は検証段階です。的中・利益を保証しません。</footer>`;bind();
+  const content=state.view==="prediction"?predictionView(state.merged,state.prediction,state.predictionPopularity)+backtestView(state.backtest):state.view==="import"?importView():state.view==="integrated"?integratedView():state.view==="detail"?detailView():state.view==="research"?researchDashboardView():state.view==="saved"?savedView():settingsView();
+  document.getElementById("app").innerHTML=`${header()}<main>${state.busy?`<div class="busy" role="status"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box" role="alert">${esc(state.error)}</div>`:""}${content}</main>${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}<footer>GallopAI v3.7｜予想は検証段階です。的中・利益を保証しません。</footer>`;bind();
 }
 function bind(){
   document.querySelectorAll("[data-view]").forEach(e=>e.onclick=async()=>{state.view=e.dataset.view;render();if(state.view==="research"&&state.cloud.user&&state.researchStatus==="idle")await refreshResearchDashboard();});
@@ -323,6 +325,12 @@ function bind(){
   const restore=document.getElementById("jsonRestore");if(restore)restore.onchange=async()=>{try{const data=JSON.parse(await restore.files[0].text());const n=importLocalBackup(data);toast(`${n}件を端末へ復元しました`);}catch(e){state.error=e.message;render();}};
   document.querySelectorAll("[data-action]").forEach(e=>e.onclick=async()=>{
     const a=e.dataset.action;if(state.busy)return;
+      if(a==="backtest"){
+        state.backtest=null;state.error="";state.busy="保存済みレースを読み込んでいます";render();
+        try{const cloud=state.cloud.user?await loadResearchDataset():[];state.backtest=await backtestRaces([...cloud,...Object.values(loadLocalRaces())],(i,n)=>{state.busy=`時系列検証 ${i}/${n}レース`;render();});}catch(err){state.error=err.message;}
+        state.busy="";render();return;
+      }
+      if(a==="backtest-export"&&state.backtest){download(JSON.stringify(state.backtest,null,2),"GallopAI_backtest.json","application/json");return;}
       if(a==="predict"){
         state.predictionPopularity=Object.fromEntries([...document.querySelectorAll("[data-prediction-popularity]")].map(el=>[el.dataset.predictionPopularity,el.value]));
         const predictionTarget=state.merged;state.prediction=null;state.error="";state.busy="過去データの読込・学習・時系列検証中";render();

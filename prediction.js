@@ -1,9 +1,10 @@
+import {aptitudeFactors,uniqueResults} from './aptitude.js';
 import {trainingSummary} from './engine.js';
 
-export const PREDICTION_VERSION='1.0.0';
+export const PREDICTION_VERSION='1.1.0';
 export const MIN_TRAINING_RACES=50;
-const fields=['RT','最終1F','急加速力','調教本数'];
-const prior=[.55,.2,.2,.05];
+const fields=['RT','最終1F','急加速力','調教本数','血統（父産駒）','騎手実績','距離実績'];
+const prior=[.55,.2,.2,.05,.1,.1,.1];
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const key=r=>`${r.meta?.date}|${r.meta?.venue}|${r.meta?.raceNo}`;
 const dateOK=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
@@ -11,7 +12,8 @@ const entry=h=>h.ability||h.raw?.targetText||h.rawSources?.targetText;
 const workout=h=>h.training||h.raw?.trainingPdf||h.rawSources?.trainingPdf;
 const result=h=>h.result||h.raw?.resultCsv||h.rawSources?.resultCsv;
 // Strict allowlist. Never read basic, features, trainingSummary or result-derived fallbacks.
-export function preRaceRows(race){
+export function preRaceRows(race,history=[]){
+  const factors=aptitudeFactors(race,history);
   const rows=(race.horses||[]).map(h=>{
     const a=entry(h),t=workout(h),s=trainingSummary(t);
     const values=[a?.rt,s.latest1F==null?null:-s.latest1F,s.maxCurrent,s.currentCount];
@@ -19,7 +21,9 @@ export function preRaceRows(race){
     values[1]=finite(values[1])&&values[1]<-8&&values[1]>-25?values[1]:null;
     values[2]=finite(values[2])&&Math.abs(values[2])<10?values[2]:null;
     values[3]=finite(values[3])&&values[3]>0&&values[3]<100?values[3]:null;
-    return {number:h.number,name:a?.name||h.name,values,complete:!!a&&!!t&&values.filter(finite).length>=2};
+    const complete=!!a&&!!t&&values.filter(finite).length>=2;
+    const aptitude=factors.get(h.number);values.push(aptitude.pedigree.value,aptitude.jockey.value,aptitude.distance.value);
+    return {number:h.number,name:a?.name||h.name,values,aptitude,complete};
   });
   for(let j=0;j<fields.length;j++){
     const v=rows.map(r=>r.values[j]).filter(finite),mean=v.reduce((a,b)=>a+b,0)/(v.length||1);
@@ -31,7 +35,7 @@ export function preRaceRows(race){
 const dot=(x,w)=>x.reduce((s,v,i)=>s+v*w[i],0);
 const softmax=s=>{const max=Math.max(...s),e=s.map(v=>Math.exp(v-max)),sum=e.reduce((a,b)=>a+b,0);return e.map(v=>v/sum);};
 function fit(examples){
-  const w=[0,0,0,0];
+  const w=fields.map(()=>0);
   for(let epoch=0;epoch<160;epoch++){
     const g=w.map(v=>.03*v);
     for(const e of examples){
@@ -53,13 +57,14 @@ function measure(examples,w){
 }
 export function predictRace(target,history=[],popularity={}){
   if(!dateOK(target?.meta?.date)||!target.meta.venue||!target.meta.raceNo)throw new Error('予想対象の日付・競馬場・レース番号が必要です。');
-  const rows=preRaceRows(target);
+  const past=uniqueResults(history).filter(r=>r.meta.date<target.meta.date);
+  const rows=preRaceRows(target,past);
   if(rows.length<2||rows.some(r=>!r.complete)||new Set(rows.map(r=>r.number)).size!==rows.length)throw new Error('全頭の出走表PDF・調教PDFを読み込んでください。RTまたは調教時計などの評価項目が不足している馬は予想できません。');
   const seen=new Set(),examples=[];
-  for(const r of history){
+  for(const r of past){
     if(!dateOK(r.meta?.date)||!r.meta.venue||!r.meta.raceNo||r.meta.date>=target.meta.date||key(r)===key(target)||seen.has(key(r)))continue;
     if(!target.meta.surface||r.meta.surface!==target.meta.surface)continue;
-    const rr=preRaceRows(r),winners=(r.horses||[]).filter(h=>result(h)?.finish===1).map(h=>h.number);
+    const rr=preRaceRows(r,past),winners=(r.horses||[]).filter(h=>result(h)?.finish===1).map(h=>h.number);
     if(rr.length<2||rr.some(h=>!h.complete)||!winners.length||new Set(rr.map(h=>h.number)).size!==rr.length)continue;
     if(r.horses.some(h=>!Number.isInteger(result(h)?.finish)||result(h).finish<1||result(h).finish>rr.length))continue;
     seen.add(key(r));examples.push({id:key(r),date:r.meta.date,rows:rr,winners});
@@ -88,5 +93,5 @@ export function predictRace(target,history=[],popularity={}){
   add('×','大穴',remaining().find(r=>popularityComplete&&Number(popularity[r.number])>=Math.max(7,Math.ceil(rows.length*.7))),popularityComplete?'人気下位約30%から選定。':'予想時点の全頭の人気を入力してください。');
   const surprise=remaining().filter(r=>r.x[1]>0&&r.x[2]>0).sort((a,b)=>(b.x[1]+b.x[2])-(a.x[1]+a.x[2]));
   add('★','激走馬',surprise[0],'今回の最終1Fと急加速力がともに出走馬平均より上。該当馬なしの場合は保留。');
-  return {version:PREDICTION_VERSION,race:key(target),mode,reason,historyCount:examples.length,trainingRaceIds:examples.map(e=>e.id),validation,weights,ranked,selections,popularityComplete,createdAt:new Date().toISOString(),warning:'評価指数は勝率ではありません。暫定評価は手動設定の重みです。調教コース差・距離適性・騎手成績・血統適性は未モデル化。結果PDFの人気や確定オッズは使用しません。'};
+  return {version:PREDICTION_VERSION,race:key(target),mode,reason,historyCount:examples.length,trainingRaceIds:examples.map(e=>e.id),validation,weights,ranked,selections,popularityComplete,createdAt:new Date().toISOString(),warning:'評価指数は勝率ではありません。暫定評価は手動設定の重みです。血統は父産駒、騎手・距離は保存済みの過去3着以内成績からの相対評価です。件数不足は加点しません。母系・クラス差・調教コース差は未補正。結果PDFの人気や確定オッズは使用しません。'};
 }
