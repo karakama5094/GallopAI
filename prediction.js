@@ -1,8 +1,8 @@
-import {workoutDateAudit} from './prediction-time.js';
+import {workoutDateAudit,predictionWorkout} from './prediction-time.js';
 import {aptitudeFactors,uniqueResults} from './aptitude.js';
 import {trainingSummary} from './engine.js';
 
-export const PREDICTION_VERSION='1.1.1';
+export const PREDICTION_VERSION='1.1.2';
 export const MIN_TRAINING_RACES=50;
 const fields=['RT','最終1F','急加速力','調教本数','血統（父産駒）','騎手実績','距離実績'];
 const prior=[.55,.2,.2,.05,.1,.1,.1];
@@ -10,7 +10,7 @@ const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const key=r=>`${r.meta?.date}|${r.meta?.venue}|${r.meta?.raceNo}`;
 const dateOK=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
 const entry=h=>h.ability||h.raw?.targetText||h.rawSources?.targetText;
-const workout=h=>h.training||h.raw?.trainingPdf||h.rawSources?.trainingPdf;
+const workout=predictionWorkout;
 const result=h=>h.result||h.raw?.resultCsv||h.rawSources?.resultCsv;
 // Strict allowlist. Never read basic, features, trainingSummary or result-derived fallbacks.
 export function preRaceRows(race,history=[]){
@@ -97,6 +97,6 @@ export function predictRace(target,history=[],popularity={}){
   add('×','大穴',remaining().find(r=>popularityComplete&&Number(popularity[r.number])>=Math.max(7,Math.ceil(rows.length*.7))),popularityComplete?'人気下位約30%から選定。':'予想時点の全頭の人気を入力してください。');
   const surprise=remaining().filter(r=>r.x[1]>0&&r.x[2]>0).sort((a,b)=>(b.x[1]+b.x[2])-(a.x[1]+a.x[2]));
   add('★','激走馬',surprise[0],'今回の最終1Fと急加速力がともに出走馬平均より上。該当馬なしの場合は保留。');
-  return {version:PREDICTION_VERSION,workoutDateAudit:dateAudit,race:key(target),mode,reason,historyCount:examples.length,trainingRaceIds:examples.map(e=>e.id),validation,weights,ranked,selections,popularityComplete,createdAt:new Date().toISOString(),warning:(dateAudit.unknown?'日付不明の調教時計を含むため、事前情報であることは未検証です。 ':'')+'評価指数は勝率ではありません。暫定評価は手動設定の重みです。血統は父産駒、騎手・距離は保存済みの過去3着以内成績からの相対評価です。件数不足は加点しません。母系・クラス差・調教コース差は未補正。結果PDFの人気や確定オッズは使用しません。'};
+  return {version:PREDICTION_VERSION,workoutDateAudit:dateAudit,race:key(target),mode,reason,historyCount:examples.length,trainingRaceIds:examples.map(e=>e.id),validation,weights,ranked,selections,popularityComplete,createdAt:new Date().toISOString(),warning:(dateAudit.recoveredClocks?`備考に残った調教時計${dateAudit.recoveredClocks}件を明示的な数値から再構成しています。 `:'')+(dateAudit.unknown?'日付不明の調教時計を含むため、事前情報であることは未検証です。 ':'')+'評価指数は勝率ではありません。暫定評価は手動設定の重みです。血統は父産駒、騎手・距離は保存済みの過去3着以内成績からの相対評価です。件数不足は加点しません。母系・クラス差・調教コース差は未補正。結果PDFの人気や確定オッズは使用しません。'};
 }
 

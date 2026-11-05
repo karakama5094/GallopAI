@@ -161,6 +161,17 @@ function trainingMeta(text){
   const n=text.normalize("NFKC"),date=n.match(DATE_JP_RE),venue=n.match(/\d+回(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)\d+日目/),race=n.match(/^\s*(\d{1,2})R\s+(第[^\n]+)$/mi);
   return {date:date?`${date[1]}-${String(date[2]).padStart(2,"0")}-${String(date[3]).padStart(2,"0")}`:"",venue:venue?venue[1]:"",raceNo:race?Number(race[1]):null,raceName:race?race[2].replace(/[▲△◎○]+$/g,"").trim():""};
 }
+// Exact clock lines, or the legacy note prefix where repeated-workout clocks were misplaced.
+export function parseWorkoutClocks(text,legacyNote=false){
+  const line=String(text||'').normalize('NFKC').trim();
+  const match=legacyNote
+    ?line.match(/^\d+回\s+(\d+\.\d(?:\s+\d+\.\d){1,7})(?:\s*\[(\d+)\])?(?=\s|$)/)
+    :line.match(/^(?:(?:\d+回|\d+F)\s+)?(\d+\.\d(?:\s+\d+\.\d){1,7})(?:\s*\[(\d+)\])?$/);
+  if(!match||(legacyNote&&/^\s*\d+\.\d/.test(line.slice(match[0].length))))return null;
+  const times=match[1].split(/\s+/).map(Number);
+  if(legacyNote&&times.some(t=>!Number.isFinite(t)||t<9||t>130))return null;
+  return {times,lane:match[2]?Number(match[2]):null};
+}
 function parseSessions(lines){
   const sessions=[];let current=null;
   for(const line of lines){
@@ -171,8 +182,8 @@ function parseSessions(lines){
       current={date:d,course:COURSES.find(c=>line.includes(c))||"",style:STYLES.find(s=>line.includes(s))||"",baba:["良","稍","重","不"].find(x=>line.includes(x))||"",prev:/^[()\s]*前回/.test(line),final:line.includes("▶"),times:[],lane:null,note:""};
       sessions.push(current);continue;
     }
-    const timeLine=/^(?:(?:1回|7F|\d+F)\s+)?(?:\d+\.\d\s+){1,7}\d+\.\d(?:\s*\[\d+\])?$/.test(line);
-    if(current&&timeLine){current.times=(line.match(/\d+\.\d/g)||[]).map(Number);const lm=line.match(/\[(\d+)\]/);current.lane=lm?Number(lm[1]):null;continue;}
+    const clock=parseWorkoutClocks(line);
+    if(current&&clock){current.times=clock.times;current.lane=clock.lane;continue;}
     if(current)current.note+=(current.note?" ":"")+line;
   }
   return sessions.filter(s=>s.overseas||s.date||s.times.length);
@@ -186,3 +197,4 @@ export function parseTrainingText(text,filename=""){
   if(!horses.length)throw new Error("調教PDFから馬ヘッダーを検出できませんでした。");
   return {filename,meta:trainingMeta(n),horses,count:horses.length};
 }
+

@@ -56,3 +56,17 @@ test('inconsistent finish ranks and malformed rows are excluded but valid dead h
 test('malformed records do not abort the whole dataset report',async()=>{
  const report=await backtestRaces([null,{horses:[null]},race()]);assert.equal(report.evaluated,1);assert.equal(report.excludedIncompleteOrDuplicate,2);
 });
+
+test('legacy repeated-workout clocks are recovered from explicit note prefixes without mutation',()=>{
+ const r=race(),s=r.horses[0].training.sessions[0];s.times=[];s.note='2回 55.6 39.5 25.1 12.2 サンプルホースと併せる';
+ const before=JSON.stringify(r),p=predictRace(r);assert.equal(p.workoutDateAudit.recoveredClocks,1);assert.match(p.warning,/再構成/);
+ assert.equal(JSON.stringify(r),before);assert.equal(p.ranked.find(h=>h.number===1).values[1],-12.2);
+});
+test('unused previous-workout date is not mistaken for a future prediction input',()=>{
+ const r=race();const before=predictRace(r).ranked;
+ r.horses[0].training.sessions.unshift({date:'10/9',prev:true,course:'栗坂',times:[53,38,24,11]});
+ assert.equal(workoutDateAudit(r).eligible,true);assert.deepEqual(predictRace(r).ranked,before);
+ // With no current clocks, the last previous clock is actually consumed and must be audited.
+ r.horses[0].training.sessions=r.horses[0].training.sessions.slice(0,1);
+ assert.equal(workoutDateAudit(r).eligible,false);assert.throws(()=>predictRace(r),/調教/);
+});
