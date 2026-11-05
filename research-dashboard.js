@@ -586,6 +586,7 @@ function currentVersion(values){
 function warningPresent(quality){
   if(!phase1Object(quality))return false;
   if(String(quality.validationStatus||"").toUpperCase()==="WARNING")return true;
+  if(phase1Number(quality.warningCount)&&quality.warningCount>0)return true;
   if(phase1Collection(quality.warning)||phase1Collection(quality.warnings))return true;
   return Array.isArray(quality.issues)&&quality.issues.some(issue=>String(issue?.level||issue?.severity||"").toUpperCase()==="WARNING");
 }
@@ -682,3 +683,4 @@ export async function recalculateResearchDashboard({loadRaces,saveSummary,now=()
   await saveSummary(summary);
   return{races,summary};
 }
+
