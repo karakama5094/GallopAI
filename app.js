@@ -1,3 +1,4 @@
+import {buildLibraryBackup} from "./library-backup.js";
 import {backtestRaces} from "./backtest.js";
 import {backtestView} from "./backtest-view.js";
 import {predictRace} from "./prediction.js";
@@ -89,6 +90,19 @@ function detailView(){
 function filteredLibrary(){
   const list=state.library==="cloud"?state.cloudRaces:Object.values(loadLocalRaces());const q=state.search.trim().toLowerCase();
   return list.filter(r=>!q||[r.raceId,r.meta?.raceName,r.meta?.venue,r.meta?.date].join(" ").toLowerCase().includes(q)).sort((a,b)=>(b.meta?.date||"").localeCompare(a.meta?.date||""));
+}
+let backupAuthGeneration=0;
+async function exportLibraryBackup(){
+ if(state.busy)return;
+ const cloud=state.library==='cloud',user=currentCloudUser(),generation=backupAuthGeneration,list=filteredLibrary();
+ if(cloud&&!user){state.error='バックアップにはログインしてください。';render();return;}
+ const isCurrent=()=>!cloud||(generation===backupAuthGeneration&&user===currentCloudUser());
+ state.busy='馬データを含むバックアップを準備中';state.error='';render();
+ try{
+  const backup=await buildLibraryBackup(list,{loadRace:cloud?getCloudRace:undefined,isCurrent,onProgress:(i,n)=>{state.busy=`馬データを読込中 ${i}/${n}レース`;render();}});
+  if(isCurrent())download(JSON.stringify(backup,null,2),`GallopAI_${cloud?'cloud':'local'}_backup.json`,'application/json');
+ }catch(error){state.error=error.message||String(error);}
+ finally{state.busy='';render();}
 }
 function savedView(){
   const list=filteredLibrary();
@@ -405,7 +419,7 @@ function bind(){
       if(a==="signin")await signInGoogle();
       if(a==="signout")await signOutCloud();
       if(a==="refresh-cloud"){state.busy="クラウド一覧を更新中";render();await refreshCloud();state.busy="";render();}
-      if(a==="backup-library"){const races=state.library==="cloud"?Object.fromEntries(state.cloudRaces.map(r=>[r.raceId,r])):loadLocalRaces();download(JSON.stringify({version:"3.3.4",exportedAt:new Date().toISOString(),races},null,2),`GallopAI_${state.library}_backup.json`,"application/json");}
+      if(a==="backup-library")await exportLibraryBackup();
       if(a==="sync-local"){const races=Object.values(loadLocalRaces());for(const r of races){const full=attachResearch(r,r.researchPackage);await saveCloudRace(full,buildResearchAnalysis([full]));}await refreshCloud();await refreshResearch(true);toast(`${races.length}件をクラウドへ同期しました`);}
       if(a==="save-config"){const cfg=parseConfigText(document.getElementById("firebaseConfig").value);saveRuntimeConfig(cfg);location.reload();}
       if(a==="clear-config"){clearRuntimeConfig();location.reload();}
@@ -416,5 +430,6 @@ function bind(){
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(console.warn);
 document.addEventListener("DOMContentLoaded",async()=>{
   restore();render();
-  await initCloud(async info=>{state.cloud={configured:info.configured,status:info.status,user:info.user||null,error:info.error||""};if(info.user){try{await refreshCloud();}catch(e){state.cloud.error=e.message;}}else{state.researchRaces=[];state.researchDashboardSummary=null;state.researchStatus="idle";}render();});
+  await initCloud(async info=>{backupAuthGeneration++;state.cloud={configured:info.configured,status:info.status,user:info.user||null,error:info.error||""};if(info.user){try{await refreshCloud();}catch(e){state.cloud.error=e.message;}}else{state.researchRaces=[];state.researchDashboardSummary=null;state.researchStatus="idle";}render();});
 });
+

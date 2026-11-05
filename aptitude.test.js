@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {aptitudeFactors,completeResult} from './aptitude.js';
 import {preRaceRows,predictRace} from './prediction.js';
 import {backtestRaces,wilson} from './backtest.js';
-function race(date,distance=1600){return {meta:{date,distance,venue:'東京',raceNo:1,surface:'芝'},horses:Array.from({length:8},(_,i)=>({number:i+1,name:`馬${i}`,ability:{name:`馬${i}`,sire:`父${i}`,jockey:`騎手${i}`,rt:70-i},training:{sessions:[{course:'栗坂',times:[54,39,25,12+i*.1]}]},result:{name:`馬${i}`,number:i+1,finish:i+1}}))};}
+function race(date,distance=1600){return {meta:{date,distance,venue:'東京',raceNo:1,surface:'芝'},horses:Array.from({length:8},(_,i)=>({number:i+1,name:`馬${i}`,ability:{name:`馬${i}`,sire:`父${i}`,jockey:`騎手${i}`,rt:70-i},training:{sessions:[{date:Number.isFinite(Date.parse(date))?new Date(Date.parse(date)-86400000).toISOString().slice(0,10):'',course:'栗坂',times:[54,39,25,12+i*.1]}]},result:{name:`馬${i}`,number:i+1,finish:i+1}}))};}
 test('pedigree jockey and distance use only strictly earlier same-surface results',()=>{
  const target=race('2026-03-01'),past=[race('2026-01-01'),race('2026-01-02'),race('2026-01-03')];
  const f=aptitudeFactors(target,[...past,race('2026-03-01'),race('2026-04-01')]).get(1);
@@ -37,3 +37,4 @@ test('walk-forward report measures real labels, does not use closing popularity,
 test('empty report and zero-hit uncertainty are honest',async()=>{
  const b=await backtestRaces([]);assert.equal(b.marks['◎'].winRate,null);assert.equal(wilson(0,0),null);assert.ok(wilson(0,1)[1]>.79);
 });
+

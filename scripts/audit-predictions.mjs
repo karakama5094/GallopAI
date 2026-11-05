@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {backtestRaces} from '../backtest.js';
+const [input,output]=process.argv.slice(2);
+if(!input)throw Error('Usage: node scripts/audit-predictions.mjs input.json [output.json]');
+const bytes=fs.readFileSync(input),data=JSON.parse(bytes),container=data?.races??data;
+const races=Array.isArray(container)?container:container?.meta&&Array.isArray(container.horses)?[container]:container&&typeof container==='object'?Object.values(container):null;
+if(!races||races.some(r=>!r||typeof r!=='object'||!Array.isArray(r.horses)))throw Error('レース配列、レースIDをキーにしたバックアップ、または単一レースJSONが必要です。');
+const report=await backtestRaces(races);
+report.source={file:path.basename(input),sha256:createHash('sha256').update(bytes).digest('hex')};
+const text=JSON.stringify(report,null,2)+'\n';
+if(output){if(path.resolve(input)===path.resolve(output))throw Error('入力ファイルの上書きは禁止です。');fs.writeFileSync(output,text,{flag:'wx'});}else process.stdout.write(text);

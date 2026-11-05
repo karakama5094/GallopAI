@@ -1,0 +1,192 @@
+{
+  "favoriteComparison": {
+    "source": "結果PDFの確定人気（予想入力には使用しない）",
+    "pairedRaces": 1,
+    "missingOrInvalidPopularity": 0,
+    "model": {
+      "races": 1,
+      "wins": 0,
+      "top3": 0,
+      "winRate": 0,
+      "top3Rate": 0,
+      "winInterval95": [
+        0,
+        0.7934506882081973
+      ]
+    },
+    "favorite": {
+      "races": 1,
+      "wins": 0,
+      "top3": 0,
+      "winRate": 0,
+      "top3Rate": 0,
+      "winInterval95": [
+        0,
+        0.7934506882081973
+      ]
+    },
+    "caveat": "当時の事前人気は保存されていません。確定1番人気との事後比較であり、事前人気を使う運用の再現ではありません。"
+  },
+  "roi": {
+    "available": false,
+    "reason": "買い目・購入額・実払戻の記録がそろっていないため算出しません。"
+  },
+  "version": "1.1.2",
+  "createdAt": "2026-11-05T13:33:21.061Z",
+  "inputRecords": 1,
+  "uniqueCompleteResults": 1,
+  "excludedIncompleteOrDuplicate": 0,
+  "evaluated": 1,
+  "skipped": [],
+  "rows": [
+    {
+      "favoriteNumber": 5,
+      "favoriteFinish": 4,
+      "race": "2025-12-28|中山|11",
+      "date": "2025-12-28",
+      "name": "第70回有馬記念",
+      "mode": "provisional",
+      "historyCount": 0,
+      "marks": [
+        {
+          "mark": "◎",
+          "label": "本命",
+          "number": 16,
+          "name": "タスティエーラ",
+          "note": "総合評価1位",
+          "finish": 6
+        },
+        {
+          "mark": "○",
+          "label": "対抗",
+          "number": 5,
+          "name": "レガレイラ",
+          "note": "総合評価2位",
+          "finish": 4
+        },
+        {
+          "mark": "▲",
+          "label": "単穴",
+          "number": 12,
+          "name": "マイネルエンペラー",
+          "note": "総合評価3位",
+          "finish": 9
+        },
+        {
+          "mark": "△",
+          "label": "複穴",
+          "number": null,
+          "name": "選定保留",
+          "note": "予想時点の全頭の人気を入力してください。",
+          "finish": null
+        },
+        {
+          "mark": "×",
+          "label": "大穴",
+          "number": null,
+          "name": "選定保留",
+          "note": "予想時点の全頭の人気を入力してください。",
+          "finish": null
+        },
+        {
+          "mark": "★",
+          "label": "激走馬",
+          "number": 10,
+          "name": "コスモキュランダ",
+          "note": "今回の最終1Fと急加速力がともに出走馬平均より上。該当馬なしの場合は保留。",
+          "finish": 2
+        }
+      ],
+      "baselineFinish": 6,
+      "baselineNumber": 16
+    }
+  ],
+  "marks": {
+    "◎": {
+      "selected": 1,
+      "wins": 0,
+      "top3": 0,
+      "winRate": 0,
+      "top3Rate": 0,
+      "winInterval95": [
+        0,
+        0.7934506882081973
+      ]
+    },
+    "○": {
+      "selected": 1,
+      "wins": 0,
+      "top3": 0,
+      "winRate": 0,
+      "top3Rate": 0,
+      "winInterval95": [
+        0,
+        0.7934506882081973
+      ]
+    },
+    "▲": {
+      "selected": 1,
+      "wins": 0,
+      "top3": 0,
+      "winRate": 0,
+      "top3Rate": 0,
+      "winInterval95": [
+        0,
+        0.7934506882081973
+      ]
+    },
+    "△": {
+      "selected": 0,
+      "wins": 0,
+      "top3": 0,
+      "winRate": null,
+      "top3Rate": null,
+      "winInterval95": null
+    },
+    "×": {
+      "selected": 0,
+      "wins": 0,
+      "top3": 0,
+      "winRate": null,
+      "top3Rate": null,
+      "winInterval95": null
+    },
+    "★": {
+      "selected": 1,
+      "wins": 0,
+      "top3": 1,
+      "winRate": 0,
+      "top3Rate": 1,
+      "winInterval95": [
+        0,
+        0.7934506882081973
+      ]
+    }
+  },
+  "modes": {
+    "provisional": {
+      "races": 1,
+      "wins": 0
+    },
+    "learned": {
+      "races": 0,
+      "wins": 0
+    }
+  },
+  "baseline": {
+    "races": 1,
+    "wins": 0
+  },
+  "limitations": [
+    "保存済みPDFの事後検証です。レース前に確定・記録した予想の成績ではありません。",
+    "結果不完全・未完走を含むレース・入力不足・調教日不明/当日以降は除外します。保存・除外による偏りがあります。",
+    "△・×は当時の人気が保存されていないため検証対象外です。確定人気を流用しません。",
+    "3着内率は複勝的中率ではありません。払戻・回収率は算出していません。",
+    "調教日は月日しかない場合に年を補います。PDFの公開・取得が発走前だったことまでは証明できません。",
+    "95%区間は二項近似の目安です。レース間の独立性や一般的な精度を保証しません。"
+  ],
+  "source": {
+    "file": "arima-2025.json",
+    "sha256": "67728d4ed77dd91439aa8e61ec94f5faf3575584efa9f6ebb2cdc43187b00022"
+  }
+}

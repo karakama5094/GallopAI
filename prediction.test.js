@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {predictRace,preRaceRows} from './prediction.js';
 import {predictionView} from './prediction-view.js';
-function race(date='2026-09-01',offset=0){return {meta:{date,venue:'中山',raceNo:11,surface:'芝'},horses:Array.from({length:10},(_,i)=>({number:i+1,name:`馬${i+1}`,ability:{name:`馬${i+1}`,rt:60+i},training:{sessions:[{course:'栗坂',times:[54+i*.3,39+i*.2,25+i*.1,12+i*.05]}]},result:{finish:((i+offset)%10)+1,popularity:i+1,odds:i+1}}))};}
+function race(date='2026-09-01',offset=0){return {meta:{date,venue:'中山',raceNo:11,surface:'芝'},horses:Array.from({length:10},(_,i)=>({number:i+1,name:`馬${i+1}`,ability:{name:`馬${i+1}`,rt:60+i},training:{sessions:[{date:Number.isFinite(Date.parse(date))?new Date(Date.parse(date)-86400000).toISOString().slice(0,10):'',course:'栗坂',times:[54+i*.3,39+i*.2,25+i*.1,12+i*.05]}]},result:{finish:((i+offset)%10)+1,popularity:i+1,odds:i+1}}))};}
 const day=i=>new Date(Date.UTC(2025,0,1+i)).toISOString().slice(0,10);
 test('insufficient history is explicitly provisional and unavailable hole selections stay empty',()=>{
  const p=predictRace(race());assert.equal(p.mode,'provisional');assert.equal(p.historyCount,0);
@@ -39,3 +39,4 @@ test('hole selections require complete unique user popularity, not result popula
 });
 test('canonical cloud raw sections work without merged aliases',()=>{const r=race(),c=structuredClone(r);c.horses.forEach(h=>{h.raw={targetText:h.ability,trainingPdf:h.training,resultCsv:h.result};delete h.ability;delete h.training;delete h.result;});assert.deepEqual(preRaceRows(c),preRaceRows(r));});
 test('prediction view escapes external names and explains provisional status',()=>{const r=race();r.horses[0].ability.name='<script>x</script>';const html=predictionView(r,predictRace(r));assert.ok(!html.includes('<script>'));assert.match(html,/暫定評価/);assert.match(html,/予想を作成/);});
+
