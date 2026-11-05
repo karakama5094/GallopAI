@@ -9,8 +9,9 @@ test("Phase 1 research dashboard renders only required summary controls",()=>{
   const view=source.slice(start,end);
 
   assert.ok(start>=0&&end>start);
-  assert.match(view,/Recalculate from Cloud/);
+  assert.match(view,/クラウド全件を再集計/);
   assert.match(view,/予想AI/);
   assert.match(view,/残り \$\{dashboard\.remainingRaces\} レース/);
   assert.doesNotMatch(view,/分布|相関|分位点|trend-chart|qualityScore 分布|OCR confidence 分布/);
 });
+
