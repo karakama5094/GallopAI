@@ -7,11 +7,12 @@ const source=readFileSync(new URL('./app.js',import.meta.url),'utf8');
 function harness(){
  const user={uid:'a'},races=[{raceId:'r1',horses:[]}];
  const c={state:{cloud:{user},researchStatus:'idle',researchRaces:[],researchDashboardSummary:null},user,races,
+  listCloudRaces:async()=>c.races,saveGlobalResearchAnalysis:async()=>{c.globalSaved=(c.globalSaved||0)+1;},featureDictionary:()=>[],
   currentCloudUser:()=>c.user,loadLocalRaces:()=>({}),render:()=>{},esc:v=>String(v??'').replaceAll('<','&lt;'),
   buildResearchDashboard,recalculateResearchDashboard,buildResearchAnalysis:()=>({}),RESEARCH_RACE_TARGET:50,RESEARCH_DASHBOARD_VERSION:'1.0.0',
   loadResearchDataset:async()=>c.races,saveResearchDashboardSummary:async()=>{c.saved=(c.saved||0)+1;}};
  vm.createContext(c);
- for(const [start,end] of [['function phase1Kpis(d){','function legacyResearchDashboardView'],['function researchDashboardView(){','function csvEscape'],['async function refreshResearchDashboard(){','async function refreshResearch(']])vm.runInContext(source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start))),c);
+ for(const [start,end] of [['function phase1Kpis(d){','function legacyResearchDashboardView'],['function researchDashboardView(){','function csvEscape'],['// Invalidate pending research responses','async function openRace(']])vm.runInContext(source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start))),c);
  return c;
 }
 test('renders loading, separate KPI counts, empty data and escaped retry error',async()=>{
@@ -40,4 +41,46 @@ test('local view ignores a stale cloud summary and disables cloud action',()=>{
 });
 test('counts explicit positive warningCount without requiring issue arrays',()=>{
  const d=buildResearchDashboard([{raceId:'r',horses:[{quality:{warningCount:2}}]}]);assert.equal(d.warningCount,1);
+});
+
+test('startup read failure shows an actionable error and dashboard retry succeeds',async()=>{
+ const c=harness();c.state.view='research';c.listCloudRaces=async()=>{throw Error('permission-denied');};
+ await c.handleCloudState({configured:true,status:'signed-in',user:c.user});
+ assert.equal(c.state.researchStatus,'error');assert.match(c.researchDashboardView(),/再試行/);assert.match(c.researchDashboardView(),/permission-denied/);
+ await c.refreshResearchDashboard();assert.equal(c.state.researchStatus,'ready');assert.equal(c.saved,1);
+});
+test('normal research reload drops the old summary and refreshes counts',async()=>{
+ const c=harness();await c.refreshResearchDashboard();c.races=[...c.races,{raceId:'r2',horses:[]}];
+ await c.refreshResearch(true);assert.equal(c.state.researchDashboardSummary,null);assert.equal(c.state.researchRaces.length,2);assert.match(c.researchDashboardView(),/2<\/b><span>総保存レース数/);assert.equal(c.globalSaved,1);
+});
+test('normal research reload cannot publish or save data after logout',async()=>{
+ const c=harness();let release;c.loadResearchDataset=()=>new Promise(resolve=>{release=resolve;});const pending=c.refreshResearch(true);
+ c.user=null;await c.handleCloudState({user:null,status:'signed-out'});release(c.races);await pending;
+ assert.equal(c.globalSaved,undefined);assert.equal(c.state.researchRaces.length,0);assert.equal(c.state.researchStatus,'idle');
+});
+test('a logout and login of the same User object invalidates older results',async()=>{
+ const c=harness();const original=c.user;let release;c.loadResearchDataset=()=>new Promise(resolve=>{release=resolve;});const pending=c.refreshResearchDashboard();
+ c.user=null;await c.handleCloudState({user:null});c.user=original;await c.handleCloudState({user:original});release(c.races);await pending;
+ assert.equal(c.saved,undefined);assert.equal(c.state.researchDashboardSummary,null);assert.equal(c.state.researchStatus,'idle');
+});
+test('summary write failure preserves the previous timestamp and allows retry',async()=>{
+ const c=harness();await c.refreshResearchDashboard();const previous=c.state.researchDashboardSummary;
+ c.saveResearchDashboardSummary=async()=>{throw Error('write denied');};await c.refreshResearchDashboard();
+ assert.equal(c.state.researchStatus,'error');assert.equal(c.state.researchDashboardSummary,previous);assert.match(c.researchDashboardView(),/再試行/);
+ c.saveResearchDashboardSummary=async()=>{};await c.refreshResearchDashboard();assert.equal(c.state.researchStatus,'ready');assert.notEqual(c.state.researchDashboardSummary,previous);
+});
+test('late startup read failure cannot overwrite a newer signed-out session',async()=>{
+ const c=harness();let fail;c.listCloudRaces=()=>new Promise((resolve,reject)=>{fail=reject;});const pending=c.handleCloudState({user:c.user});
+ c.user=null;await c.handleCloudState({user:null});fail(Error('old session'));await pending;
+ assert.equal(c.state.researchStatus,'idle');assert.equal(c.state.cloud.error,'');assert.equal(c.state.cloud.user,null);
+});
+test('a newer normal reload supersedes an older dashboard recalculation',async()=>{
+ const c=harness();let release;c.loadResearchDataset=()=>new Promise(resolve=>{release=resolve;});const pending=c.refreshResearchDashboard();
+ c.loadResearchDataset=async()=>[{raceId:'new',horses:[]}];await c.refreshResearch();release(c.races);await pending;
+ assert.equal(c.saved,undefined);assert.equal(c.state.researchRaces[0].raceId,'new');assert.equal(c.state.researchDashboardSummary,null);assert.equal(c.state.researchStatus,'ready');
+});
+test('a late successful startup list cannot restore a previous account race list',async()=>{
+ const c=harness();let release;c.listCloudRaces=()=>new Promise(resolve=>{release=resolve;});const pending=c.handleCloudState({user:c.user});
+ c.user=null;await c.handleCloudState({user:null});release(c.races);await pending;
+ assert.equal(c.state.cloudRaces.length,0);assert.equal(c.state.researchRaces.length,0);assert.equal(c.state.cloud.user,null);
 });

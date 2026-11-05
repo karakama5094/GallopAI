@@ -276,32 +276,64 @@ function safeName(r){return`${r.meta?.date||""}_${r.meta?.raceName||r.raceId}`.r
 function exportCsv(r){download(raceCsv(r),`${safeName(r)}_GallopAI.csv`,"text/csv;charset=utf-8");}
 function exportJson(r){download(JSON.stringify(r,null,2),`${safeName(r)}_GallopAI.json`,"application/json");}
 async function cloudSave(){if(!state.merged)return;try{if(!canSaveRace(state.merged))throw new Error("出走表・調教を全頭そろえ、日付と照合結果を確認してください。");state.busy="特徴量・品質・OCR・ログを生成して保存中";render();state.merged=attachResearch(state.merged,state.merged.researchPackage);if(state.merged.quality?.validationStatus==="ERROR")throw new Error("品質エラーがあるため保存できません。研究所の品質指摘を確認してください。");const singleAnalysis=buildResearchAnalysis([state.merged]);await saveCloudRace(state.merged,singleAnalysis);await refreshCloud();await refreshResearch(true);toast("v3.3.4正式構造でクラウド保存・統計更新しました");}catch(e){state.error=e.message;}state.busy="";render();}
-async function refreshCloud(){if(!currentCloudUser()){state.cloudRaces=[];return;}state.cloudRaces=await listCloudRaces();}
+// Invalidate pending research responses on reload and every authentication event.
+let researchGeneration=0;
+async function refreshCloud(){
+ const requestedUser=currentCloudUser(),generation=researchGeneration;
+ if(!requestedUser){state.cloudRaces=[];return;}
+ const races=await listCloudRaces();
+ if(currentCloudUser()===requestedUser&&generation===researchGeneration)state.cloudRaces=races;
+}
 async function refreshResearchDashboard(){
  if(state.researchStatus==="loading")return;
- const requestedUser=currentCloudUser();
- if(!currentCloudUser()){
-  const races=Object.values(loadLocalRaces());state.researchRaces=[];state.researchDashboardSummary=buildResearchDashboard(races);state.researchAnalysis=buildResearchAnalysis(races);state.researchStatus="ready";state.researchError="";render();return;
+ const requestedUser=currentCloudUser(),generation=++researchGeneration;
+ const isCurrent=()=>generation===researchGeneration&&currentCloudUser()===requestedUser;
+ if(!requestedUser){
+  const races=Object.values(loadLocalRaces());state.researchRaces=[];state.researchDashboardSummary=null;state.researchAnalysis=buildResearchAnalysis(races);state.researchStatus="ready";state.researchError="";render();return;
  }
  state.researchStatus="loading";state.researchError="";render();
  try{
-  const {races,summary}=await recalculateResearchDashboard({loadRaces:loadResearchDataset,saveSummary:summary=>{if(currentCloudUser()!==requestedUser)throw new Error("ログイン状態が変更されました。再集計してください。");return saveResearchDashboardSummary(summary);}});
-  if(currentCloudUser()!==requestedUser)return;
+  const {races,summary}=await recalculateResearchDashboard({loadRaces:loadResearchDataset,saveSummary:summary=>{
+   if(!isCurrent())throw new Error("ログイン状態または研究データが変更されました。再集計してください。");
+   return saveResearchDashboardSummary(summary);
+  }});
+  if(!isCurrent())return;
   state.researchRaces=races;state.researchDashboardSummary=summary;state.researchAnalysis=buildResearchAnalysis(races);state.researchAuditCache=null;state.researchStatus="ready";
- }catch(error){if(currentCloudUser()===requestedUser){state.researchStatus="error";state.researchError=error.message||String(error);}}
+ }catch(error){if(isCurrent()){state.researchStatus="error";state.researchError=error.message||String(error);}}
  finally{render();}
 }
 async function refreshResearch(saveGlobal=false){
- if(!currentCloudUser()){state.researchRaces=[];state.researchStatus="ready";state.researchError="";render();return;}
+ const requestedUser=currentCloudUser(),generation=++researchGeneration;
+ const isCurrent=()=>generation===researchGeneration&&currentCloudUser()===requestedUser;
+ if(!requestedUser){state.researchRaces=[];state.researchDashboardSummary=null;state.researchStatus="ready";state.researchError="";render();return;}
  state.researchStatus="loading";state.researchError="";render();
  try{
-  state.researchRaces=await loadResearchDataset();
-  state.researchDashboardSummary=null;
-  state.researchAnalysis=buildResearchAnalysis(state.researchRaces);
-  if(saveGlobal)await saveGlobalResearchAnalysis(state.researchAnalysis,featureDictionary());
+  const races=await loadResearchDataset();
+  if(!isCurrent())return;
+  const analysis=buildResearchAnalysis(races);
+  if(saveGlobal)await saveGlobalResearchAnalysis(analysis,featureDictionary());
+  if(!isCurrent())return;
+  state.researchRaces=races;state.researchDashboardSummary=null;state.researchAnalysis=analysis;state.researchAuditCache=null;
   state.researchStatus="ready";
  }catch(error){
-  state.researchStatus="error";state.researchError=error.message||String(error);
+  if(isCurrent()){state.researchStatus="error";state.researchError=error.message||String(error);}
+ }finally{render();}
+}
+async function handleCloudState(info){
+ const generation=++researchGeneration;
+ state.cloud={configured:info.configured,status:info.status,user:info.user||null,error:info.error||""};
+ state.cloudRaces=[];state.researchRaces=[];state.researchDashboardSummary=null;state.researchAnalysis=null;state.researchAuditCache=null;state.researchStatus="idle";state.researchError="";
+ render();
+ if(!info.user)return;
+ try{
+  await refreshCloud();
+  if(generation!==researchGeneration)return;
+  if(state.view==="research")await refreshResearchDashboard();
+ }catch(error){
+  if(generation===researchGeneration){
+   state.cloud.error=error.message||String(error);
+   state.researchStatus="error";state.researchError=state.cloud.error;
+  }
  }finally{render();}
 }
 async function openRace(id){try{const r=state.library==="cloud"?await getCloudRace(id):loadLocalRaces()[id];if(r){state.merged=attachResearch(r,r.researchPackage);state.sources=sourcesFromRace(r);state.prediction=null;state.predictionPopularity={};persist();state.error="";state.view="integrated";render();}}catch(e){state.error=e.message;render();}}
@@ -420,6 +452,6 @@ function bind(){
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(console.warn);
 document.addEventListener("DOMContentLoaded",async()=>{
   restore();render();
-  await initCloud(async info=>{state.cloud={configured:info.configured,status:info.status,user:info.user||null,error:info.error||""};state.researchRaces=[];state.researchDashboardSummary=null;state.researchStatus="idle";state.researchError="";if(info.user){try{await refreshCloud();if(state.view==="research")await refreshResearchDashboard();}catch(e){state.cloud.error=e.message;}}else{state.researchRaces=[];state.researchDashboardSummary=null;state.researchStatus="idle";}render();});
+  await initCloud(handleCloudState);
 });
 
