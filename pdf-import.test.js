@@ -104,3 +104,44 @@ test('real Keibabook Arima PDFs: all 16 entries, workouts and results agree',{sk
   assert.deepEqual(race.horses.map(h=>h.trainingSummary.latest1F),[12.9,12.3,11.8,12.5,11.2,11.3,12.2,12.8,13.5,12,11.8,11.3,13.3,12.3,12.7,11.8]);
   assert.equal(race.horses[3].result.last3f,34.6);assert.equal(race.horses[9].result.odds,111.5);
 });
+
+
+// Coordinates mirror the compact result layout; names are synthetic, not the uploaded PDF.
+function compactResultRow(number,finish,y=100){return [
+  item(finish,9.690625,y+3,14.4,14.4),item(String(number),39.20954,y+3,10.2528,14.4),
+  item('テストホース',85.375,y-21,86.4,14.4),item('牡9',85.375,y,23.8608,14.4),
+  item('騎手名',123.6214,y,43.2,14.4),item('58',176.4118,y,18.9216,14.4),
+  item('栗',89.70312,y+23.667,14.4,14.4),item('厩舎名',108.4313,y+23.667,43.2,14.4),
+  item('4',171.284,y+22,7.932,12),item('4',191.8777,y+22,7.932,12),item('13',208.9754,y+22,15.768,12),
+  item('止',229.5781,y+24,15,15),item('468(+2)',332.5125,y-18,57.6,14.4),
+  item('19.3',345.3933,y+3,31.8384,14.4),item('7人気',342.1821,y+24,38.2608,14.4)
+];}
+test('compact stopped result keeps its horse with a null finish and canonical abnormal code',()=>{
+  for(const marker of ['止','中止','取消','除外','失格']){
+    const h=parseKeibabookResult(doc([compactResultRow(5,marker)])).horses[0];
+    assert.equal(h.number,5);assert.equal(h.finish,null);assert.equal(h.abnormalCode,marker==='止'?'中止':marker);
+    assert.equal(h.time,'');assert.equal(h.last3f,null);assert.equal(h.odds,19.3);assert.equal(h.bodyWeight,468);
+  }
+});
+test('18 runner result including compact stop passes entry and workout number validation',()=>{
+  const rows=Array.from({length:18},(_,i)=>compactResultRow(i+1,i===4?'止':String(i<4?i+1:i),100+i*100)).flat();
+  const result=parseKeibabookResult(doc([rows]));
+  assert.equal(result.count,18);assert.equal(result.horses.filter(h=>h.finish!==null).length,17);
+  const expected=result.horses.map(h=>({number:h.number,name:h.name}));
+  assert.doesNotThrow(()=>validateSourceRace({targetText:{meta,horses:expected},training:{meta,horses:expected}},'resultCsv',result));
+  const race=mergeSources({targetText:{meta,horses:expected,count:18},training:{meta,horses:expected,count:18},resultCsv:result});
+  assert.equal(race.counts.resultMatched,18);assert.equal(canSaveRace(race),true);
+  assert.equal(race.horses.find(h=>h.number===5).result.finish,null);
+});
+test('real Kokura result PDF retains all 18 horses including the stopped runner',{skip:!process.env.GALLOPAI_KOKURA_RESULT_PDF},async()=>{
+  const root=path.dirname(new URL(import.meta.url).pathname);
+  function bundle(name){const file=path.join(root,name),m=new Module(file);m.filename=file;m.paths=Module._nodeModulePaths(root);m._compile(fs.readFileSync(file,'utf8'),file);return m.exports;}
+  globalThis.pdfjsWorker=bundle('pdf.worker.min.js');const pdfjs=bundle('pdf.min.js');
+  const filePath=process.env.GALLOPAI_KOKURA_RESULT_PDF;
+  const file={name:path.basename(filePath),size:fs.statSync(filePath).size,arrayBuffer:async()=>{const bytes=fs.readFileSync(filePath);return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);}};
+  const result=await import('./pdf-import.js').then(({importPdf})=>importPdf(file,'resultCsv',pdfjs));
+  assert.equal(result.meta.date,'2026-07-19');assert.equal(result.meta.venue,'小倉');assert.equal(result.meta.raceNo,11);
+  assert.equal(result.count,18);assert.deepEqual(result.horses.map(h=>h.number).sort((a,b)=>a-b),Array.from({length:18},(_,i)=>i+1));
+  const stopped=result.horses.find(h=>h.number===5);assert.equal(stopped.name,'エヒト');assert.equal(stopped.finish,null);assert.equal(stopped.abnormalCode,'中止');
+  assert.equal(result.horses.filter(h=>h.finish!==null).length,17);
+});
