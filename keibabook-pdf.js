@@ -98,7 +98,7 @@ export function parseKeibabookResult(document,filename='') {
       const size=anchor.height,sex=SEX.exec(anchor.text);
       const top=anchor.y-size*2,bottom=anchor.y+size*2.8;
       const row=inside(items,-Infinity,Infinity,top,bottom);
-      const numbers=row.filter(i=>i.x<anchor.x&&/^(\d{1,2}|中止|取消|除外|失格)$/.test(i.text)).sort((a,b)=>a.x-b.x);
+      const numbers=row.filter(i=>i.x<anchor.x&&/^(\d{1,2}|止|中止|取消|除外|失格)$/.test(i.text)).sort((a,b)=>a.x-b.x);
       if(numbers.length!==2)continue;
       const nameItems=inside(row,anchor.x-1,Infinity,top,anchor.y-size*.5);
       const nameRow=textRows(nameItems).find(r=>r.items.some(i=>Math.abs(i.x-anchor.x)<size*.5));
@@ -118,7 +118,7 @@ export function parseKeibabookResult(document,filename='') {
       const corners=stableRow?.items.filter(i=>/^\d{1,2}$/.test(i.text)).map(i=>Number(i.text))||[];
       const margin=last?row.find(i=>i.y>last.y+size*.5&&Math.abs(i.x-last.x)<size*2&&/^(?:[\d /]+|クビ|ハナ|アタマ|大差|同着)$/.test(i.text)):null;
       const finish=/^\d+$/.test(numbers[0].text)?Number(numbers[0].text):null;
-      horses.push({number:Number(numbers[1].text),name,finish,abnormalCode:finish===null?numbers[0].text:'',
+      horses.push({number:Number(numbers[1].text),name,finish,abnormalCode:finish===null?(numbers[0].text==='止'?'中止':numbers[0].text):'',
         sex:sexValue(sex[1]),age:Number(sex[2]),weight:Number(detail[weightIndex].text),jockey:detail.slice(1,weightIndex).map(i=>i.text).join(''),
         time:timeItem?.text||'',last3f:last?Number(last.text.slice(1,-1)):null,margin:margin?.text||'',
         bodyWeight:bodyMatch?Number(bodyMatch[1]):null,bodyWeightDelta:bodyMatch?.[2]!==undefined?Number(bodyMatch[2]):null,
@@ -128,3 +128,4 @@ export function parseKeibabookResult(document,filename='') {
   }
   return sourceResult(horses,document,filename,'レース結果PDF');
 }
+
