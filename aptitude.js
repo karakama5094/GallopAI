@@ -4,16 +4,22 @@ export const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Dat
 export const entryOf=h=>h.ability||h.raw?.targetText||h.rawSources?.targetText;
 export const resultOf=h=>h.result||h.raw?.resultCsv||h.rawSources?.resultCsv;
 const norm=s=>String(s||'').normalize('NFKC').replace(/\s/g,'');
+function validFinishOrder(horses){
+  const ranks=horses.map(h=>resultOf(h)?.finish).sort((a,b)=>a-b);
+  // Competition ranking: dead heats such as 1,1,3 are valid; 1,1,2 is not.
+  return ranks.every((rank,i)=>i===0?rank===1:rank===ranks[i-1]||rank===i+1);
+}
 export function completeResult(r){
-  const hs=r.horses||[];
-  return validDate(r.meta?.date)&&!!r.meta.venue&&Number.isInteger(r.meta.raceNo)&&hs.length>=2
+  if(!r||typeof r!=='object'||!Array.isArray(r.horses)||r.horses.some(h=>!h||typeof h!=='object'))return false;
+  const hs=r.horses;
+  return validDate(r.meta?.date)&&!!r.meta.venue&&Number.isInteger(r.meta.raceNo)&&r.meta.raceNo>=1&&r.meta.raceNo<=12&&hs.length>=2
     &&new Set(hs.map(h=>h.number)).size===hs.length&&hs.every(h=>Number.isInteger(h.number)&&h.number>0&&entryOf(h))
     &&hs.every(h=>Number.isInteger(resultOf(h)?.finish)&&resultOf(h).finish>=1&&resultOf(h).finish<=hs.length)
     &&hs.every(h=>(resultOf(h).number==null||resultOf(h).number===h.number)&&(!resultOf(h).name||norm(resultOf(h).name)===norm(entryOf(h).name)))
-    &&hs.some(h=>resultOf(h).finish===1);
+    &&hs.some(h=>resultOf(h).finish===1)&&validFinishOrder(hs);
 }
 export function uniqueResults(history){
-  const seen=new Set();return history.filter(r=>{const k=raceKey(r);if(!completeResult(r)||seen.has(k))return false;seen.add(k);return true;}).sort((a,b)=>a.meta.date.localeCompare(b.meta.date)||raceKey(a).localeCompare(raceKey(b)));
+  const seen=new Set();return history.filter(r=>{if(!completeResult(r))return false;const k=raceKey(r);if(seen.has(k))return false;seen.add(k);return true;}).sort((a,b)=>a.meta.date.localeCompare(b.meta.date)||raceKey(a).localeCompare(raceKey(b)));
 }
 // Point-in-time aggregates, rebuilt at each historical prediction date.
 export function aptitudeFactors(target,history){
@@ -35,3 +41,4 @@ export function aptitudeFactors(target,history){
     }];
   }));
 }
+

@@ -1,7 +1,8 @@
+import {workoutDateAudit} from './prediction-time.js';
 import {aptitudeFactors,uniqueResults} from './aptitude.js';
 import {trainingSummary} from './engine.js';
 
-export const PREDICTION_VERSION='1.1.0';
+export const PREDICTION_VERSION='1.1.1';
 export const MIN_TRAINING_RACES=50;
 const fields=['RT','最終1F','急加速力','調教本数','血統（父産駒）','騎手実績','距離実績'];
 const prior=[.55,.2,.2,.05,.1,.1,.1];
@@ -57,6 +58,8 @@ function measure(examples,w){
 }
 export function predictRace(target,history=[],popularity={}){
   if(!dateOK(target?.meta?.date)||!target.meta.venue||!target.meta.raceNo)throw new Error('予想対象の日付・競馬場・レース番号が必要です。');
+  const dateAudit=workoutDateAudit(target);
+  if(dateAudit.issues.length)throw new Error('レース当日以降または不正な日付の調教時計があります。レース前のPDFを確認してください。');
   const past=uniqueResults(history).filter(r=>r.meta.date<target.meta.date);
   const rows=preRaceRows(target,past);
   if(rows.length<2||rows.some(r=>!r.complete)||new Set(rows.map(r=>r.number)).size!==rows.length)throw new Error('全頭の出走表PDF・調教PDFを読み込んでください。RTまたは調教時計などの評価項目が不足している馬は予想できません。');
@@ -64,6 +67,7 @@ export function predictRace(target,history=[],popularity={}){
   for(const r of past){
     if(!dateOK(r.meta?.date)||!r.meta.venue||!r.meta.raceNo||r.meta.date>=target.meta.date||key(r)===key(target)||seen.has(key(r)))continue;
     if(!target.meta.surface||r.meta.surface!==target.meta.surface)continue;
+    if(!workoutDateAudit(r).eligible)continue;
     const rr=preRaceRows(r,past),winners=(r.horses||[]).filter(h=>result(h)?.finish===1).map(h=>h.number);
     if(rr.length<2||rr.some(h=>!h.complete)||!winners.length||new Set(rr.map(h=>h.number)).size!==rr.length)continue;
     if(r.horses.some(h=>!Number.isInteger(result(h)?.finish)||result(h).finish<1||result(h).finish>rr.length))continue;
@@ -93,5 +97,6 @@ export function predictRace(target,history=[],popularity={}){
   add('×','大穴',remaining().find(r=>popularityComplete&&Number(popularity[r.number])>=Math.max(7,Math.ceil(rows.length*.7))),popularityComplete?'人気下位約30%から選定。':'予想時点の全頭の人気を入力してください。');
   const surprise=remaining().filter(r=>r.x[1]>0&&r.x[2]>0).sort((a,b)=>(b.x[1]+b.x[2])-(a.x[1]+a.x[2]));
   add('★','激走馬',surprise[0],'今回の最終1Fと急加速力がともに出走馬平均より上。該当馬なしの場合は保留。');
-  return {version:PREDICTION_VERSION,race:key(target),mode,reason,historyCount:examples.length,trainingRaceIds:examples.map(e=>e.id),validation,weights,ranked,selections,popularityComplete,createdAt:new Date().toISOString(),warning:'評価指数は勝率ではありません。暫定評価は手動設定の重みです。血統は父産駒、騎手・距離は保存済みの過去3着以内成績からの相対評価です。件数不足は加点しません。母系・クラス差・調教コース差は未補正。結果PDFの人気や確定オッズは使用しません。'};
+  return {version:PREDICTION_VERSION,workoutDateAudit:dateAudit,race:key(target),mode,reason,historyCount:examples.length,trainingRaceIds:examples.map(e=>e.id),validation,weights,ranked,selections,popularityComplete,createdAt:new Date().toISOString(),warning:(dateAudit.unknown?'日付不明の調教時計を含むため、事前情報であることは未検証です。 ':'')+'評価指数は勝率ではありません。暫定評価は手動設定の重みです。血統は父産駒、騎手・距離は保存済みの過去3着以内成績からの相対評価です。件数不足は加点しません。母系・クラス差・調教コース差は未補正。結果PDFの人気や確定オッズは使用しません。'};
 }
+
