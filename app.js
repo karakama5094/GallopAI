@@ -1,3 +1,4 @@
+import {BULK_MAX_FILES,BULK_SLOTS,readBulkFiles,buildBulkRows,saveBulkRows} from "./bulk-import.js";
 import {backtestRaces} from "./backtest.js";
 import {backtestView} from "./backtest-view.js";
 import {predictRace} from "./prediction.js";
@@ -47,11 +48,52 @@ function sourceCard(key,accept,desc,step){
 }
 function importView(){
   return `<div class="page-title"><span>PDF IMPORT</span><h2>iPhoneで登録、iPhoneで閲覧</h2><p>競馬ブックのPDFを3種類添付するだけ。出走表・調教はレース前、結果はレース後に登録できます。</p></div>
+  ${bulkImportView()}
   <details class="pdf-help"><summary>iPhoneでPDFを用意する方法</summary><ol><li>Safariで競馬ブックの「能力表（HTML）」「調教」「レース結果」をそれぞれ開きます。</li><li>共有 → プリント → 印刷プレビューを2本指で広げる → 共有 →「ファイルに保存」を選びます。</li><li>下の「PDFを添付」から、同じレースのPDFを選びます。</li></ol><p>文字を選択できるPDFに対応。写真・スキャンPDFは読み取れません。1ファイル40MBまで。読み込み処理は端末内で行います。</p></details>
   <div class="source-grid">${sourceCard("targetText",".pdf,application/pdf","能力表HTMLのPDF。馬番・馬名・性齢・斤量・騎手・血統を取り込みます。",1)}${sourceCard("training",".pdf,application/pdf","調教時計・追い方・短評を取り込み、出走馬に照合します。",2)}${sourceCard("resultCsv",".pdf,application/pdf","レース後に添付。着順・タイム・上がり・人気・オッズ・馬体重を追加します。",3)}</div>
   <div class="actions"><button class="ghost" data-action="clear">新しいレース</button></div>
   ${state.merged?mergePanel():""}`;
 }
+const bulkState={records:[],nextId:1,results:{},running:false};
+let bulkAuthGeneration=0;
+function bulkImportView(){
+ const rows=buildBulkRows(bulkState.records,state.settings),locked=!!state.busy||bulkState.running,localIds=new Set(Object.keys(loadLocalRaces())),cloudIds=new Set((state.cloudRaces||[]).map(r=>r.raceId));
+ const resultLabel=r=>r?`<p role="status">${esc(r.message)}</p>`:"";
+ return `<section class="settings-card bulk-import"><h3>複数レースのPDFをまとめて取込</h3><p>「ファイル」で複数選択してください。出馬表・調教・結果の別フォルダーから順番に追加できます。選択だけでは保存されません。</p><p class="muted">1ファイル40MB・1回の選択は合計100MBまで、一覧は${BULK_MAX_FILES}ファイルまで。画像PDFや複数レース入りPDFは対象外です。結果は任意です。</p><div class="bulk-pickers">${[['auto','まとめて自動判別'],...Object.entries(BULK_SLOTS).map(([k,v])=>[k,v+'フォルダーから追加'])].map(([slot,label])=>`<label class="file-button">${label}<input type="file" multiple accept=".pdf,application/pdf" data-bulk-file="${slot}" aria-label="${label}" ${locked?'disabled':''}></label>`).join('')}</div>
+ ${bulkState.records.length?`<p>${bulkState.records.length}ファイル / ${rows.length}レース（保存候補 ${rows.filter(r=>r.ready).length}）</p><div class="bulk-files">${bulkState.records.map(r=>`<div><span>${esc(r.name)}${r.error?`：${esc(r.error)}`:''}</span><button data-bulk-remove="${r.id}" ${locked?'disabled':''}>外す</button></div>`).join('')}</div><div class="bulk-rows">${rows.map(row=>`<article><b>${esc(row.meta.date)} ${esc(row.meta.venue)} ${esc(row.meta.raceNo)}R ${esc(row.meta.raceName)}</b><p>${localIds.has(row.raceId)?'端末保存済み（スキップ） / ':''}${cloudIds.has(row.raceId)?'クラウド保存済み（スキップ） / ':''}${row.race?.horses.length||0}頭 / ${Object.entries(BULK_SLOTS).map(([slot,label])=>label+':'+(row.sources[slot]?'あり':'なし')).join(' / ')}</p>${row.issues.length?`<ul>${row.issues.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`:'<p>照合済み・保存候補（保存時に品質を検査します）</p>'}${resultLabel(bulkState.results['local:'+row.raceId])}${resultLabel(bulkState.results['cloud:'+row.raceId])}</article>`).join('')}</div><p>保存済み表示は現在の一覧に基づき、保存時に再確認します。保存済みレースはスキップします。結果の追加や差替えは、保存一覧から個別に開いて行ってください。一括保存中は他の端末から同じレースを保存しないでください。</p><div class="actions"><button data-action="bulk-save-local" ${locked||!rows.some(r=>r.ready)?'disabled':''}>候補を端末へ一括保存</button><button class="primary" data-action="bulk-save-cloud" ${locked||!state.cloud.user||!rows.some(r=>r.ready)?'disabled':''}>候補をクラウドへ一括保存</button><button data-action="bulk-clear" ${locked?'disabled':''}>取込一覧をクリア</button></div>`:''}</section>`;
+}
+async function importBulkSelection(files,preferred){
+ if(state.busy||bulkState.running)return;
+ if(bulkState.records.length+files.length>BULK_MAX_FILES){state.error=`一覧は${BULK_MAX_FILES}ファイルまでです。保存後に一覧をクリアしてください。`;render();return;}
+ bulkState.running=true;state.error="";state.busy="一括PDFを読込中";render();
+ try{
+  const records=await readBulkFiles(files,{preferred,pdfjs:window.pdfjsLib,onProgress:p=>{state.busy=`PDF ${p.index}/${p.total} ${p.name}${p.page?` (${p.page}/${p.pages}ページ)`:''}`;render();}});
+  bulkState.records.push(...records.map(r=>({...r,id:bulkState.nextId++})));bulkState.results={};
+ }catch(error){state.error=error.message||String(error);}
+ finally{bulkState.running=false;state.busy="";render();}
+}
+async function saveBulkSelection(destination){
+ if(state.busy||bulkState.running)return;
+ const rows=buildBulkRows(bulkState.records,state.settings).filter(r=>r.ready);
+ if(!rows.length)return;
+ const cloud=destination==='cloud',requestedUser=currentCloudUser(),generation=bulkAuthGeneration;
+ if(cloud&&!requestedUser){state.error="クラウド保存にはログインしてください。";render();return;}
+ if(!confirm(`${rows.length}レースの候補を${cloud?'クラウド':'端末'}へ保存します。保存済みはスキップします。よろしいですか？`))return;
+ const current=()=>!cloud||(requestedUser===currentCloudUser()&&generation===bulkAuthGeneration);
+ bulkState.running=true;state.error="";state.busy="一括保存中";render();
+ try{
+  await saveBulkRows(rows,{
+   listExisting:async()=>{if(!current())throw Error('ログイン状態が変更されました。');return cloud?await listCloudRaces():Object.values(loadLocalRaces());},
+   prepare:race=>attachResearch(race),
+   save:race=>cloud?saveCloudRace(race,buildResearchAnalysis([race])):saveLocalRace(race),
+   isCurrent:current,onResult:result=>{bulkState.results[destination+':'+result.raceId]={...result,message:`${cloud?'クラウド':'端末'}：${result.message}`};render();}
+  });
+  if(cloud&&current())await refreshCloud();
+  state.researchDashboardSummary=null;state.researchStatus="idle";state.researchAnalysis=null;
+ }catch(error){state.error=error.message||String(error);}
+ finally{bulkState.running=false;state.busy="";render();}
+}
+
 function mergePanel(){
   const m=state.merged,err=m.diagnostics.filter(x=>x.level==="error").length,warn=m.diagnostics.filter(x=>x.level==="warning").length;
   return `<section class="merge-panel"><p class="hint">出走表と調教が全頭そろったら保存できます。クラウド保存すると、同じGoogleアカウントでほかの端末からも閲覧できます。保存対象はPDFから読み取ったデータです。</p><div class="merge-title"><div><span>MERGE STATUS</span><h3>${esc(m.meta.raceName||m.raceId)}</h3><p>${esc(m.meta.date)} ${esc(m.meta.venue)} ${m.meta.raceNo||"-"}R</p></div><div class="merge-score">${m.counts.preRaceComplete}<small>/${m.counts.merged}</small></div></div>
@@ -311,6 +353,8 @@ function render(){
   document.getElementById("app").innerHTML=`${header()}<main>${state.busy?`<div class="busy" role="status"><span class="spinner"></span>${esc(state.busy)}</div>`:""}${state.error?`<div class="error-box" role="alert">${esc(state.error)}</div>`:""}${content}</main>${state.toast?`<div class="toast">${esc(state.toast)}</div>`:""}<footer>GallopAI v3.7｜予想は検証段階です。的中・利益を保証しません。</footer>`;bind();
 }
 function bind(){
+  document.querySelectorAll('[data-bulk-file]').forEach(el=>el.onchange=()=>{const files=Array.from(el.files||[]);el.value='';if(files.length)importBulkSelection(files,el.dataset.bulkFile);});
+  document.querySelectorAll('[data-bulk-remove]').forEach(el=>el.onclick=()=>{if(state.busy||bulkState.running)return;bulkState.records=bulkState.records.filter(r=>String(r.id)!==el.dataset.bulkRemove);bulkState.results={};render();});
   document.querySelectorAll("[data-view]").forEach(e=>e.onclick=async()=>{state.view=e.dataset.view;render();if(state.view==="research"&&state.cloud.user&&state.researchStatus==="idle")await refreshResearchDashboard();});
   document.querySelectorAll("[data-file]").forEach(e=>e.onchange=()=>e.files?.[0]&&importFile(e.dataset.file,e.files[0]));
   document.querySelectorAll("[data-sort]").forEach(e=>e.onclick=()=>{state.sort=e.dataset.sort;render();});
@@ -324,7 +368,10 @@ function bind(){
   const search=document.getElementById("search");if(search)search.oninput=()=>{state.search=search.value;render();};
   const restore=document.getElementById("jsonRestore");if(restore)restore.onchange=async()=>{try{const data=JSON.parse(await restore.files[0].text());const n=importLocalBackup(data);toast(`${n}件を端末へ復元しました`);}catch(e){state.error=e.message;render();}};
   document.querySelectorAll("[data-action]").forEach(e=>e.onclick=async()=>{
-    const a=e.dataset.action;if(state.busy)return;
+    const a=e.dataset.action;
+      if(a==='bulk-save-local'){await saveBulkSelection('local');return;}
+      if(a==='bulk-save-cloud'){await saveBulkSelection('cloud');return;}
+      if(a==='bulk-clear'){if(!state.busy&&!bulkState.running){bulkState.records=[];bulkState.results={};render();}return;}if(state.busy)return;
       if(a==="backtest"){
         state.backtest=null;state.error="";state.busy="保存済みレースを読み込んでいます";render();
         try{const cloud=state.cloud.user?await loadResearchDataset():[];state.backtest=await backtestRaces([...cloud,...Object.values(loadLocalRaces())],(i,n)=>{state.busy=`時系列検証 ${i}/${n}レース`;render();});}catch(err){state.error=err.message;}
@@ -416,5 +463,6 @@ function bind(){
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(console.warn);
 document.addEventListener("DOMContentLoaded",async()=>{
   restore();render();
-  await initCloud(async info=>{state.cloud={configured:info.configured,status:info.status,user:info.user||null,error:info.error||""};if(info.user){try{await refreshCloud();}catch(e){state.cloud.error=e.message;}}else{state.researchRaces=[];state.researchDashboardSummary=null;state.researchStatus="idle";}render();});
+  await initCloud(async info=>{bulkAuthGeneration++;bulkState.results={};state.cloud={configured:info.configured,status:info.status,user:info.user||null,error:info.error||""};if(info.user){try{await refreshCloud();}catch(e){state.cloud.error=e.message;}}else{state.researchRaces=[];state.researchDashboardSummary=null;state.researchStatus="idle";}render();});
 });
+
